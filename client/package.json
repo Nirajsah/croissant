@@ -6,11 +6,11 @@
     "types": "pkg/linera_web.d.ts",
     "scripts": {
         "install": "true",
-        "build": "bash build.bash",
-        "prepare": "pnpm build",
+        "build": "wasm-pack build --target web --out-dir pkg",
         "lint": "cargo fmt --check && cargo clippy -- -W clippy::pedantic",
         "ci": "pnpm lint"
     },
+    "private": true,
     "keywords": [],
     "author": "Linera <contact@linera.io>",
     "license": "Apache-2.0"
