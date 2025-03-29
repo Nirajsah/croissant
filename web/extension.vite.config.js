@@ -10,9 +10,11 @@ export default defineConfig({
     sourcemap: true,
     assetsInlineLimit: 0,
     rollupOptions: {
-      //   input: {
-      //     popup: resolve(__dirname, 'src/popup/welcome.html'),
-      //   },
+      input: {
+        background: resolve(__dirname, 'src/background/index.ts'),
+        content: resolve(__dirname, 'src/content/index.ts'),
+        injected: resolve(__dirname, 'src/content/injected.ts'),
+      },
       preserveEntrySignatures: 'strict',
       output: {
         minifyInternalExports: false,
