@@ -5,8 +5,9 @@ import wasmModuleUrl from '@linera/client/pkg/linera_web_bg.wasm?url'
 
 export class Server {
   private static initialized = false
+  private static wasmInstance: typeof wasm | null = null
 
-  public static async init() {
+  static async init() {
     if (this.initialized) return
 
     try {
@@ -16,6 +17,7 @@ export class Server {
         module_or_path: await WebAssembly.instantiate(wasmBuffer),
       })
       this.initialized = true
+      this.wasmInstance = wasm
       console.log('🚀 WASM Initialized Successfully')
     } catch (error) {
       console.error('❌ WASM Initialization Failed:', error)
@@ -24,5 +26,6 @@ export class Server {
 
   public static async run() {
     await this.init()
+    return this.wasmInstance
   }
 }
