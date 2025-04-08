@@ -14,6 +14,7 @@ export default defineConfig({
         background: resolve(__dirname, 'src/background/index.ts'),
         content: resolve(__dirname, 'src/content/index.ts'),
         injected: resolve(__dirname, 'src/content/injected.ts'),
+        popup: resolve(__dirname, 'src/popup/index.html'),
       },
       preserveEntrySignatures: 'strict',
       output: {
@@ -23,6 +24,7 @@ export default defineConfig({
     },
   },
   resolve: {
+    extensions: ['.ts', '.js', '.jsx', '.tsx'],
     alias: {
       '@': resolve(__dirname, 'src'),
     },

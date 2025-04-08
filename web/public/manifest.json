@@ -3,7 +3,8 @@
   "name": "Croissant 🥐",
   "version": "0.1",
   "action": {
-    "default_title": "Croissant"
+    "default_title": "Croissant",
+    "default_popup": "src/popup/index.html"
   },
   "permissions": ["storage", "activeTab", "scripting"],
   "content_security_policy": {
