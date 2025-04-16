@@ -4,7 +4,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        homenaje: ['Homenaje'],
+        inter: ['Inter'],
+        oswald: ['Oswald'],
       },
     },
   },
