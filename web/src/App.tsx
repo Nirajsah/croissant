@@ -5,8 +5,8 @@ import './index.css'
 
 function App() {
   return (
-    <div className="font-homenaje text-white w-[357px] h-[600px] flex flex-col items-center justify-center bg-[#191818f7]">
-      <HomePage />
+    <div className="font-oswald text-white w-[357px] h-[600px] flex flex-col items-center justify-center bg-[#18181b]">
+      <Welcome />
     </div>
   )
 }
