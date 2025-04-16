@@ -1,9 +1,13 @@
-// import { Server } from '../wallet/index'
+import { Server } from '../wallet' // adjust path as needed
+
+// Boot the wallet backend
+Server.run()
 
 chrome.runtime.onMessage.addListener((message, _, sendResponse) => {
   console.log('🔄 Background received:', message)
+  if (message.target !== 'wallet') return
 
-  if (message.method === 'say_hello') {
+  if (message.type === 'say_hello') {
     sendResponse('Hello from Linera Wallet!')
   } else {
     sendResponse({ error: 'Unknown method' })

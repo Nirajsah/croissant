@@ -18,5 +18,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/popup/srcte-env.d.ts", "src/window.d.ts"]
+  "include": ["src/**/*.d.ts"]
 }
