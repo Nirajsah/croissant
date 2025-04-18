@@ -4,8 +4,18 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        inter: ['Inter'],
-        oswald: ['Oswald'],
+        montserrat: ['Montserrat'],
+        russo: ['Russo One'],
+      },
+
+      keyframes: {
+        'fade-slide': {
+          '0%': { opacity: 0, transform: 'translateY(6px)' },
+          '100%': { opacity: 1, transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-slide': 'fade-slide 300ms ease-out',
       },
     },
   },
