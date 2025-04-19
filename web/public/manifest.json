@@ -6,7 +6,7 @@
     "default_title": "Croissant",
     "default_popup": "src/popup/index.html"
   },
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "unlimitedStorage", "activeTab", "scripting"],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval';"
   },

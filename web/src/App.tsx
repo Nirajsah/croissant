@@ -3,17 +3,20 @@ import Welcome from './components/Welcome'
 import React from 'react'
 import './index.css'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import WalletProvider from './store/WalletProvider'
 
 function App() {
   return (
-    <div className="font-russo font-thin text-white w-[357px] h-[600px] flex flex-col items-center justify-center bg-black">
-      <MemoryRouter>
-        <Routes>
-          <Route path="/" element={<Welcome />} />
-          <Route path="/home" element={<HomePage />} />
-        </Routes>
-      </MemoryRouter>
-    </div>
+    <WalletProvider>
+      <div className="font-russo font-thin text-white w-[357px] h-[600px] flex flex-col items-center justify-center bg-black">
+        <MemoryRouter>
+          <Routes>
+            <Route path="/" element={<Welcome />} />
+            <Route path="/home" element={<HomePage />} />
+          </Routes>
+        </MemoryRouter>
+      </div>
+    </WalletProvider>
   )
 }
 

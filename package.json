@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "bun build:client && bun build:web",
-    "build:client": "wasm-pack build client --target web --out-dir client/pkg",
-    "build:web": "bun --filter web build",
+    "build:client": "wasm-pack build client --target web --out-dir pkg",
+    "build:web": "bun --filter web build:extension",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -14,5 +14,8 @@
   "workspaces": [
     "web",
     "client"
-  ]
+  ],
+  "dependencies": {
+    "lucide-react": "^0.488.0"
+  }
 }
