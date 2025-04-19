@@ -27,4 +27,12 @@ export const walletApi = {
       type: 'say_hello',
     })
   },
+
+  async createDB(wallet: string) {
+    return await chrome.runtime.sendMessage({
+      target: 'wallet',
+      type: 'create_db',
+      wallet,
+    })
+  },
 }

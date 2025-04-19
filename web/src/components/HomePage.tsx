@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Copy, MoreVertical } from 'lucide-react'
+import { useWallet } from '../store/WalletProvider'
 
 const accounts = [
   { name: 'Account 1', address: '0xaji39u3jago3ijagkh32kj3n1230d' },
@@ -148,12 +149,10 @@ export const TaskCard = () => {
       <div className="w-full h-full flex max-w-md mt-1 overflow-hidden">
         {/* Card with dark blue gradient background */}
         <div className="flex items-start h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-3">
-          {[1, 2].map((_, i, arr) => (
+          {[1, 2, 3].map((_, i, arr) => (
             <div
               key={i}
-              className={`relative flex-shrink-0 ${
-                arr.length === 1 ? 'w-full' : 'w-[94%]'
-              } h-full border border-lime-800/50 p-3 rounded-xl overflow-hidden snap-center`}
+              className="relative flex-shrink-0 w-[90%] h-full border border-lime-800/50 p-3 rounded-xl overflow-hidden snap-center"
             >
               {/* Light effects */}
               <div className="absolute -top-10 -left-10 w-60 h-40 bg-lime-700/10 rounded-full blur-xl pointer-events-none"></div>
@@ -162,36 +161,103 @@ export const TaskCard = () => {
 
               {/* Card Content */}
               <div className="relative h-full flex justify-between flex-col">
-                <div className="flex justify-between">
-                  <h2 className="text-[42px] font-bold text-gray-200">$0.00</h2>
-                  <span className="text-[42px] font-bold text-gray-200">L</span>
+                <div className="flex h-[80px] items-center w-full justify-between">
+                  <h2 className="text-[45px] font-bold text-gray-200">$0.00</h2>
+                  <span>
+                    <svg
+                      width="45"
+                      height="45"
+                      viewBox="0 0 409 409"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <defs>
+                        <mask
+                          id="cutout-mask"
+                          maskUnits="userSpaceOnUse"
+                          x="0"
+                          y="0"
+                          width="409"
+                          height="409"
+                        >
+                          <rect width="409" height="409" fill="white" />
+                          <path
+                            d="M145.5 205L174.5 154H233.5L263 205L233.5 255.5H174.5L145.5 205Z"
+                            fill="black"
+                          />
+                          <path
+                            d="M146 304L131.5 277L277.5 277.5L261.5 304H146Z"
+                            fill="black"
+                          />
+                          <path
+                            d="M262.5 106L277 133L131 132.5L147 106H262.5Z"
+                            fill="black"
+                          />
+                          <path
+                            d="M118.24 154L89 205.254L118.744 255H150L121.769 205.254L150 154H118.24Z"
+                            fill="black"
+                          />
+                          <path
+                            d="M289.76 256L319 204.239L289.256 154H258L286.231 204.239L258 256H289.76Z"
+                            fill="black"
+                          />
+                          <path
+                            d="M100.5 141L87 118L36 204.5L87.5 291.5L100.5 268.5L64.5 204.5L100.5 141Z"
+                            fill="black"
+                          />
+                          <path
+                            d="M308 268.5L321.5 291.5L372.5 205L321 118L308 141L344 205L308 268.5Z"
+                            fill="black"
+                          />
+                        </mask>
+                      </defs>
+
+                      <circle
+                        cx="204.5"
+                        cy="204.5"
+                        r="204"
+                        fill="#a3e635"
+                        mask="url(#cutout-mask)"
+                      />
+
+                      <g fill="none" stroke="black">
+                        <path d="M145.5 205L174.5 154H233.5L263 205L233.5 255.5H174.5L145.5 205Z" />
+                        <path d="M146 304L131.5 277L277.5 277.5L261.5 304H146Z" />
+                        <path d="M262.5 106L277 133L131 132.5L147 106H262.5Z" />
+                        <path d="M118.24 154L89 205.254L118.744 255H150L121.769 205.254L150 154H118.24Z" />
+                        <path d="M289.76 256L319 204.239L289.256 154H258L286.231 204.239L258 256H289.76Z" />
+                        <path d="M100.5 141L87 118L36 204.5L87.5 291.5L100.5 268.5L64.5 204.5L100.5 141Z" />
+                        <path d="M308 268.5L321.5 291.5L372.5 205L321 118L308 141L344 205L308 268.5Z" />
+                      </g>
+                    </svg>
+                  </span>
                 </div>
-                {/* <div className="w-full space-y-2">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="text-xs text-white">Chain:</span>
-                    <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1">
+                <div className="w-full space-y-2">
+                  <div className="flex items-center space-x-1">
+                    {/* <span className="text-xs text-white">Chain:</span> */}
+                    <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1.5">
                       aee928d4bf3880353b4a3cd9b6f88e6cc6e5ed050860abae439e7782e9b2dfe8
                     </span>
                     <button
                       onClick={() => handleCopy('ahiogeagaego3oaga')} // change with the actual address
-                      className="hover:text-blue-300 transition"
+                      className="hover:text-[#a3e635] transition p-1 rounded-full"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <span className="text-xs text-white">Owner:</span>
-                    <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1">
+                    {/* <span className="text-xs text-white">Owner:</span> */}
+                    <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1.5">
                       aee928d4bf3880353b4a3cd9b6f88e6cc6e5ed050860abae439e7782e9b2dfe8
                     </span>
                     <button
                       onClick={() => handleCopy('aieoiajgioajgaoigja')}
-                      className="hover:text-blue-300 transition"
+                      className="hover:text-[#a3e635] transition"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
-                </div> */}
+                </div>
               </div>
             </div>
           ))}
@@ -459,7 +525,7 @@ export const ChainInfoList = ({ chains }: ChainInfoListProps) => {
   )
 }
 
-export const Footer = () => {
+const Footer = () => {
   return (
     <div className="w-full h-[50px] flex justify-center items-center">
       <p className="text-sm text-slate-500">Powered by Croissant</p>
@@ -467,12 +533,107 @@ export const Footer = () => {
   )
 }
 
-export default function HomePage() {
+const Loading = () => {
   return (
-    <div className="w-full h-full flex flex-col">
-      <TopBar />
-      <TaskCard />
-      <Menu />
+    <div className="flex items-center justify-center h-screen">
+      <svg
+        width="400"
+        height="120"
+        viewBox="0 0 400 120"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <text
+          x="50%"
+          y="50%"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontFamily="'Great Vibes', cursive"
+          fontSize="60"
+          stroke="#fff"
+          strokeWidth="1"
+          fill="transparent"
+        >
+          <animate
+            attributeName="stroke-dashoffset"
+            from="1000"
+            to="0"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+          <animate
+            attributeName="stroke-dasharray"
+            values="1000;1000"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+          Croissant
+        </text>
+        <style>
+          {`
+            text {
+              stroke-dasharray: 1000;
+              stroke-dashoffset: 1000;
+              animation: draw 2s linear infinite;
+            }
+            @keyframes draw {
+              0% {
+                stroke-dashoffset: 1000;
+              }
+              100% {
+                stroke-dashoffset: 0;
+              }
+            }
+          `}
+        </style>
+      </svg>
     </div>
+  )
+}
+
+export default function HomePage() {
+  const { wallet, fetchWallet } = useWallet()
+  const [loading, setLoading] = useState(true)
+
+  // useEffect(() => {
+  //   let interval: NodeJS.Timeout | null = null
+  //   let attempts = 0
+  //   const maxRetries = 3
+
+  //   const tryFetch = async () => {
+  //     await fetchWallet()
+  //     attempts += 1
+
+  //     // If wallet is fetched or we've tried enough, stop polling
+  //     if (wallet || attempts >= maxRetries) {
+  //       if (interval) clearInterval(interval)
+  //       setLoading(false)
+  //     }
+  //   }
+
+  //   // Call once immediately
+  //   tryFetch()
+
+  //   // Start polling every 3 seconds
+  //   interval = setInterval(tryFetch, 3000)
+
+  //   // Cleanup on unmount
+  //   return () => {
+  //     if (interval) clearInterval(interval)
+  //   }
+  // }, [wallet])
+
+  return (
+    <>
+      {loading === true ? (
+        <Loading />
+      ) : (
+        <div className="w-full h-full flex flex-col">
+          <TopBar />
+          <TaskCard />
+          <Menu />
+        </div>
+      )}
+    </>
   )
 }

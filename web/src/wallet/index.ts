@@ -7,7 +7,7 @@ export class Server {
   private static wasmInstance: typeof wasm | null = null
 
   private client: wasm.Client | null = null
-  private wallet: string | null = null
+  private wallet: wasm.Wallet | null = null
 
   static async init() {
     if (this.initialized) return
@@ -39,9 +39,15 @@ export class Server {
     if (!Server.initialized || !Server.wasmInstance) {
       throw new Error('WASM not initialized')
     }
-    this.wallet = wallet
+    await Server.wasmInstance.Wallet.fromJson(wallet)
+  }
 
-    console.log('✅ Wallet set successfully', wallet)
+  async getWallet() {
+    if (!Server.initialized || !Server.wasmInstance) {
+      throw new Error('WASM not initialized')
+    }
+    const db = await Server.wasmInstance.Wallet.read()
+    return db
   }
 
   public static async run() {
