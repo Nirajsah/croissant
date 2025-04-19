@@ -6,8 +6,7 @@ This module defines the client API for the Web extension.
 // ensure the generated code will return a `Promise`.
 #![allow(clippy::unused_async)]
 
-use std::{collections::HashMap, future::Future, sync::Arc};
-
+use std::{cell::RefCell, collections::HashMap, future::Future, sync::Arc};
 use futures::{lock::Mutex as AsyncMutex, stream::StreamExt};
 use linera_base::identifiers::ApplicationId;
 use linera_client::{
@@ -22,8 +21,14 @@ use linera_core::{
 use linera_faucet_client::Faucet;
 use linera_views::store::WithError;
 use serde::ser::Serialize as _;
+use utils::{decrypt_wallet_basic, encrypt_wallet_basic, persist_wallet};
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, wasm_bindgen};
+mod utils;
+
+thread_local! {
+    static WALLET: RefCell<Option<String>> = RefCell::new(None);
+}
 
 // TODO(#12): convert to IndexedDbStore once we refactor Context
 type WebStorage =
@@ -95,9 +100,11 @@ impl JsFaucet {
     /// If we couldn't retrieve the genesis config from the faucet.
     #[wasm_bindgen(js_name = createWallet)]
     pub async fn create_wallet(&self) -> JsResult<JsWallet> {
-        Ok(JsWallet(PersistentWallet::new(
-            linera_client::wallet::Wallet::new(self.0.genesis_config().await?, None),
-        )))
+        let wallet = JsWallet(PersistentWallet::new(linera_client::wallet::Wallet::new(
+            self.0.genesis_config().await?,
+            None,
+        )));
+        Ok(wallet)
     }
 
     // TODO(#40): figure out a way to alias or specify this string for TypeScript
@@ -152,6 +159,11 @@ impl JsFaucet {
             listener.await;
             drop(listen_handle);
         });
+        tracing::info!(
+            "wallet: {}",
+            serde_json::to_string(&context.wallet().clone()).unwrap(),
+        );
+
         Ok(outcome.chain_id.to_string())
     }
 }
@@ -159,14 +171,30 @@ impl JsFaucet {
 #[wasm_bindgen(js_class = "Wallet")]
 impl JsWallet {
     /// Creates and persists a new wallet from the given JSON string.
-    ///
+    /// Need not return the wallet.
     /// # Errors
     /// If the wallet deserialization fails.
     #[wasm_bindgen(js_name = fromJson)]
-    pub async fn from_json(wallet: &str) -> Result<JsWallet, JsError> {
-        Ok(JsWallet(PersistentWallet::new(serde_json::from_str(
-            wallet,
-        )?)))
+    pub async fn from_json(wallet: &str) -> Result<JsValue, JsError> {
+        match encrypt_wallet_basic(wallet) {
+            Ok(hash) => {
+                match persist_wallet(utils::WalletOperation::Write(&hash)).await {
+                    Ok(wallet_hash) => {
+                        WALLET.with(|w| {
+                            *w.borrow_mut() = Some(wallet_hash);
+                        });
+                        Ok(JsValue::from_str("Wallet Added"))
+                    }
+                    Err(e) => {
+                        Err(JsError::new(&format!("Failed to persist wallet: {e:?}")))
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to encrypt wallet: {e:?}");
+                Err(JsError::new(&format!("Failed to encrypt wallet: {e:?}")))
+            }
+        }
     }
 
     /// Attempts to read the wallet from persistent storage.
@@ -174,9 +202,31 @@ impl JsWallet {
     /// # Errors
     /// If storage is inaccessible.
     #[wasm_bindgen]
-    pub async fn read() -> Result<Option<JsWallet>, JsError> {
-        Ok(None)
+    pub async fn read() -> Result<Option<String>, JsError> {
+        let wallet_json = WALLET.with(|cell| {
+            match &*cell.borrow() {
+                Some(wallet_hash) => {
+                    // Decrypt the stored wallet hash
+                    let decrypted_wallet = decrypt_wallet_basic(wallet_hash)
+                        .map_err(|e| JsError::new(&format!("Failed to decrypt wallet: {e:?}")))?;
+                    // Just return the decrypted wallet as a JSON string
+                    Ok(Some(decrypted_wallet))
+                }
+                None => {
+                    /* 
+                    * Get data from IndexedDB decrypt it, write to WALLET and return.
+                        WALLET.with(|w| {
+                            *w.borrow_mut() = Some(wallet_hash);
+                        });
+                    */
+                    tracing::error!("No wallet found in memory");
+                    Ok(None)
+                }
+            }
+        });
+        wallet_json
     }
+
 }
 
 /// The full client API, exposed to the wallet implementation. Calls
@@ -458,7 +508,3 @@ pub fn main() {
     linera_base::tracing::init();
 }
 
-#[wasm_bindgen]
-pub fn say_hello() -> JsValue {
-    JsValue::from_str("Hello there")
-}

@@ -30,6 +30,8 @@ tokio = "1.40.0"
 tracing = "0.1.40"
 wasm-bindgen = "0.2.95"
 wasm-bindgen-futures = "0.4"
+indexed_db_futures = "0.6.1"
+base64 = "0.22.1"
 
 [dependencies.linera-base]
 path = "../../linera-protocol/linera-base"
@@ -69,7 +71,7 @@ features = ["web", "indexeddb"]
 
 [dependencies.web-sys]
 version = "0.3"
-features = ["console", "Window"]
+features = ["console", "Window", "IdbFactory", "IdbOpenDbRequest", "IdbRequest", "IdbTransaction", "IdbRequestReadyState"]
 
 [dependencies.getrandom]
 version = "*"
