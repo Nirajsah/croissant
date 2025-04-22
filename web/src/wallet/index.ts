@@ -1,13 +1,16 @@
 import * as wasm from '@linera/client'
+import type { Client } from '@linera/client'
+import type { Wallet } from '@linera/client'
 
 import wasmModuleUrl from '@linera/client/pkg/linera_web_bg.wasm?url'
 
 export class Server {
   private static initialized = false
   private static wasmInstance: typeof wasm | null = null
-
-  private client: wasm.Client | null = null
-  private wallet: wasm.Wallet | null = null
+  private static subscribers = new Set<chrome.runtime.Port>()
+  private static ready: Promise<void> | null = null
+  private client: Client | null = null
+  private wallet: Wallet | null = null
 
   static async init() {
     if (this.initialized) return
@@ -20,38 +23,54 @@ export class Server {
       })
       this.initialized = true
       this.wasmInstance = wasm
-      console.log('🚀 WASM Initialized Successfully')
+
+      chrome.runtime.onConnect.addListener((port) => {
+        if (port.name !== 'notifications') {
+          console.warn('Unknown channel type', port.name)
+          return
+        }
+
+        this.subscribers.add(port)
+        port.onDisconnect.addListener((port) => this.subscribers.delete(port))
+      })
     } catch (error) {
       console.error('❌ WASM Initialization Failed:', error)
     }
   }
 
-  // Create one instance of Server
-  static instance: Server | null = null
-  static getInstance() {
+  static async run() {
+    if (!this.ready) {
+      this.ready = this.init()
+    }
+    await this.ready
     if (!this.instance) {
       this.instance = new Server()
     }
     return this.instance
   }
 
+  // Create one instance of Server
+  static instance: Server | null = null
+  static async getInstance(): Promise<Server> {
+    return await this.run()
+  }
+
   async setWallet(wallet: string) {
     if (!Server.initialized || !Server.wasmInstance) {
-      throw new Error('WASM not initialized')
+      await Server.run()
     }
-    await Server.wasmInstance.Wallet.fromJson(wallet)
+    const wasm = Server.wasmInstance!
+    const jsWallet = await wasm.Wallet.fromJson(wallet)
+    // using this jsWallet a client will be created.
   }
 
   async getWallet() {
     if (!Server.initialized || !Server.wasmInstance) {
-      throw new Error('WASM not initialized')
+      await Server.run()
     }
-    const db = await Server.wasmInstance.Wallet.read()
-    return db
-  }
-
-  public static async run() {
-    await this.init()
-    this.getInstance()
+    const wasm = Server.wasmInstance!
+    const jsWallet = await wasm.Wallet.read()
+    // using this jsWallet a client will be created.
+    return jsWallet
   }
 }

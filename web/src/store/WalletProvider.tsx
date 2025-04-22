@@ -1,33 +1,40 @@
 import React, { createContext, useState, ReactNode, useContext } from 'react'
 import { walletApi } from '../wallet/walletApi'
+import { type Wallet } from '../walletTypes'
 
-export const WalletContext = createContext<any | null>(null)
+interface WalletContextType {
+  wallet: Wallet | null
+  setWallet: React.Dispatch<React.SetStateAction<Wallet | null>>
+  importWallet: (json: string) => Promise<boolean>
+  isLoading: boolean
+  setIsLoading: (loading: boolean) => void
+}
+
+export const WalletContext = createContext<WalletContextType | null>(null)
 
 export default function WalletProvider({ children }: { children: ReactNode }) {
-  const [wallet, setWallet] = useState(null)
+  const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
 
-  async function fetchWallet() {
-    const walletJson = await walletApi.getWallet()
-    if (walletJson) {
-      setWallet(JSON.parse(walletJson))
-    }
-  }
-
-  async function fromJson(wallet_json: string) {
-    walletApi
+  async function importWallet(wallet_json: string): Promise<boolean> {
+    return walletApi
       .setWallet(wallet_json)
       .then(() => {
         setWallet(JSON.parse(wallet_json))
+        return true
       })
       .catch(() => {
         console.error('Failed to set wallet')
+        return false
       })
   }
 
-  const values = {
+  const values: WalletContextType = {
     wallet,
-    setWallet: fromJson,
-    fetchWallet,
+    setWallet,
+    importWallet,
+    isLoading,
+    setIsLoading,
   }
 
   return (
@@ -35,10 +42,10 @@ export default function WalletProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export const useWallet = () => {
-  const walletContext = useContext(WalletContext)
-  if (!walletContext) {
-    return {}
+export function useWallet(): WalletContextType {
+  const context = useContext(WalletContext)
+  if (!context) {
+    throw new Error('Wallet context is not available')
   }
-  return walletContext
+  return context
 }

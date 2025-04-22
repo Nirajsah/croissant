@@ -1,12 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Copy, MoreVertical } from 'lucide-react'
+import { Copy, MoreVertical } from 'lucide-react'
 import { useWallet } from '../store/WalletProvider'
-
-const accounts = [
-  { name: 'Account 1', address: '0xaji39u3jago3ijagkh32kj3n1230d' },
-  { name: 'Account 2', address: '0x89fj3jf30jfj38fjajf3jfj93jf0' },
-  { name: 'Account 3', address: '0x120ab93f8381f88aa01f01ff1cc9' },
-]
+import { ChainValue, Convert } from '../walletTypes'
+import { useNavigate } from 'react-router-dom'
+import { walletApi } from '../wallet/walletApi'
 
 const TopBar = () => {
   return (
@@ -140,8 +137,13 @@ export const WalletFunctionButtons = () => {
   )
 }
 
-export const TaskCard = () => {
-  const handleCopy = (str: string) => {
+export const WalletCard = ({
+  walletChain,
+}: {
+  walletChain: ChainValue[] | null
+}) => {
+  const handleCopy = (str: string | undefined) => {
+    if (!str) return
     navigator.clipboard.writeText(str)
   }
   return (
@@ -149,10 +151,10 @@ export const TaskCard = () => {
       <div className="w-full h-full flex max-w-md mt-1 overflow-hidden">
         {/* Card with dark blue gradient background */}
         <div className="flex items-start h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-3">
-          {[1, 2, 3].map((_, i, arr) => (
+          {walletChain?.map((chain, i, arr) => (
             <div
               key={i}
-              className="relative flex-shrink-0 w-[90%] h-full border border-lime-800/50 p-3 rounded-xl overflow-hidden snap-center"
+              className="relative min-w-[90%] w-full h-full border border-lime-800/50 p-3 rounded-xl overflow-hidden snap-center"
             >
               {/* Light effects */}
               <div className="absolute -top-10 -left-10 w-60 h-40 bg-lime-700/10 rounded-full blur-xl pointer-events-none"></div>
@@ -236,10 +238,10 @@ export const TaskCard = () => {
                   <div className="flex items-center space-x-1">
                     {/* <span className="text-xs text-white">Chain:</span> */}
                     <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1.5">
-                      aee928d4bf3880353b4a3cd9b6f88e6cc6e5ed050860abae439e7782e9b2dfe8
+                      {chain.chain_id}
                     </span>
                     <button
-                      onClick={() => handleCopy('ahiogeagaego3oaga')} // change with the actual address
+                      onClick={() => handleCopy(chain.chain_id)} // change with the actual address
                       className="hover:text-[#a3e635] transition p-1 rounded-full"
                     >
                       <Copy className="w-4 h-4" />
@@ -248,10 +250,10 @@ export const TaskCard = () => {
                   <div className="flex items-center space-x-1">
                     {/* <span className="text-xs text-white">Owner:</span> */}
                     <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1.5">
-                      aee928d4bf3880353b4a3cd9b6f88e6cc6e5ed050860abae439e7782e9b2dfe8
+                      {chain.key_pair?.Ed25519}
                     </span>
                     <button
-                      onClick={() => handleCopy('aieoiajgioajgaoigja')}
+                      onClick={() => handleCopy(chain.key_pair?.Ed25519)}
                       className="hover:text-[#a3e635] transition"
                     >
                       <Copy className="w-4 h-4" />
@@ -265,41 +267,6 @@ export const TaskCard = () => {
       </div>
 
       <WalletFunctionButtons />
-    </div>
-  )
-}
-
-export const MainContent = () => {
-  return (
-    <div className="w-full min-h-[40%] p-3">
-      <div className="flex h-full gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar">
-        {[1, 2].map((_, index) => (
-          <div
-            key={index}
-            className="bg-blue-500/20 rounded-xl h-full flex-shrink-0 snap-center p-3 min-w-[92%]"
-          >
-            <div className="flex flex-col -space-y-1 w-full h-full">
-              <span className="text-xs">My Balance</span>
-              <span className="text-[40px] font-bold h-fit w-fit">$0.00</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-const Options = () => {
-  return (
-    <div className="flex flex-col gap-3 w-full">
-      <div className="w-full h-[80px] px-2 py-2 rounded-xl bg-lime-500/10 border border-lime-500 flex items-center justify-between">
-        <span className="text-xs text-lime-500">Option 1</span>
-        <span className="text-xs text-white">Option 1 content</span>
-      </div>
-      <div className="w-full h-[80px] px-2 py-2 rounded-xl bg-lime-500/10 border border-lime-500 flex items-center justify-between">
-        <span className="text-xs text-lime-500">Option 2</span>
-        <span className="text-xs text-white">Option 2 content</span>
-      </div>
     </div>
   )
 }
@@ -444,93 +411,8 @@ export const Menu = () => {
   )
 }
 
-type ChainInfo = {
-  chainId: string
-  publicKey: string
-  nextBlockHeight: number
-  blockHash?: string | null
-}
-
-type ChainInfoListProps = {
-  chains: ChainInfo[]
-}
-
-const chains = [
-  {
-    chainId: 'aee928d4bf3880353b4a3cd9b6f88e6cc6e5ed050860abae439e7782e9b2dfe8',
-    publicKey:
-      '0094970bf1aa9a35bb8c853d5e51fa955ae91abaadb907886173a16b37c928f9ee',
-    blockHash:
-      '22a370bf1aa9a35bb8c853d5e51fa955ae91abaadb907886173a16b37c928f9ee',
-    nextBlockHeight: 0,
-  },
-  {
-    chainId: 'b0128d4bf312123abc3cd9b6fabc86cc123ed050860abae439e7782e9b2dfe8',
-    publicKey:
-      '22a370bf1aa9a35bb8c853d5e51fa955ae91abaadb907886173a16b37c928f9ee',
-    blockHash:
-      '22a370bf1aa9a35bb8c853d5e51fa955ae91abaadb907886173a16b37c928f9ee',
-    nextBlockHeight: 5,
-  },
-]
-
 const shortenMiddle = (str: string) => {
   return `${str.slice(0, 10)}...${str.slice(-10)}`
-}
-
-export const ChainInfoList = ({ chains }: ChainInfoListProps) => {
-  return (
-    <div className="flex flex-col gap-3 w-full">
-      {chains.map((chain, i) => (
-        <div
-          key={i}
-          className="w-full flex-col h-[80px] px-2 py-2 rounded-xl bg-lime-500/10 flex items-center justify-between"
-        >
-          <div className="flex w-full h-full flex-col">
-            <div className="flex gap-1 w-full justify-start">
-              <span className="text-xs text-lime-500 text-nowrap">
-                Chain ID:
-              </span>
-              <span className="text-xs text-white truncate">
-                {chain.chainId}
-              </span>
-            </div>
-
-            <div className="flex gap-1 w-full justify-start">
-              <span className="text-xs text-lime-500 text-nowrap">
-                Public Key:
-              </span>
-              <span className="text-xs text-white truncate">
-                {chain.publicKey}
-              </span>
-            </div>
-            <div className="flex gap-1 w-full justify-start">
-              <span className="text-xs text-lime-500 text-nowrap">hash:</span>
-              <span className="text-xs text-white truncate">
-                {chain.blockHash}
-              </span>
-            </div>
-            <div className="flex gap-1 w-full justify-start">
-              <span className="text-xs text-lime-500 text-nowrap">
-                Block Height:
-              </span>
-              <span className="text-xs text-white truncate">
-                {chain.nextBlockHeight}
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-const Footer = () => {
-  return (
-    <div className="w-full h-[50px] flex justify-center items-center">
-      <p className="text-sm text-slate-500">Powered by Croissant</p>
-    </div>
-  )
 }
 
 const Loading = () => {
@@ -591,49 +473,143 @@ const Loading = () => {
   )
 }
 
+export const checkWalletExists = (): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('linera_wallet')
+
+    request.onsuccess = () => {
+      const db = request.result
+
+      try {
+        if (!db.objectStoreNames.contains('wallet')) {
+          console.log('Wallet store does not exist.')
+          db.close()
+          indexedDB.deleteDatabase('linera_wallet')
+          resolve(false)
+          return
+        } else {
+          resolve(true)
+        }
+      } catch (err) {
+        console.log('Transaction failed:', err)
+        indexedDB.deleteDatabase('linera_wallet')
+        resolve(false)
+      }
+    }
+
+    request.onerror = () => {
+      console.error('Failed to open DB')
+      indexedDB.deleteDatabase('linera_wallet')
+      resolve(false)
+    }
+  })
+}
+
 export default function HomePage() {
-  const { wallet, fetchWallet } = useWallet()
-  const [loading, setLoading] = useState(true)
+  const { wallet, isLoading, setWallet, setIsLoading } = useWallet()
+  const navigate = useNavigate()
+  const [retryCount, setRetryCount] = useState(0)
 
   // useEffect(() => {
-  //   let interval: NodeJS.Timeout | null = null
-  //   let attempts = 0
-  //   const maxRetries = 3
+  //   let timeoutId: NodeJS.Timeout
 
-  //   const tryFetch = async () => {
-  //     await fetchWallet()
-  //     attempts += 1
+  //   const fetchWallet = async () => {
+  //     setIsLoading(true)
+  //     const walletExists = await checkWalletExists()
+  //     if (!walletExists) {
+  //       navigate('/set')
+  //       return
+  //     }
 
-  //     // If wallet is fetched or we've tried enough, stop polling
-  //     if (wallet || attempts >= maxRetries) {
-  //       if (interval) clearInterval(interval)
-  //       setLoading(false)
+  //     try {
+  //       const walletData = await walletApi.getWallet()
+  //       if (!walletData) {
+  //         navigate('/set')
+  //         return
+  //       }
+  //       setWallet(Convert.toWallet(walletData))
+  //       setIsLoading(false)
+  //     } catch (error) {
+  //       console.error(
+  //         `Error fetching wallet (attempt ${retryCount + 1}/3):`,
+  //         error
+  //       )
+
+  //       if (retryCount < 2) {
+  //         setRetryCount((prev) => prev + 1)
+  //         setTimeout(fetchWallet, 1000)
+  //       } else {
+  //         navigate('/set')
+  //       }
   //     }
   //   }
+  //   // Delay before initial fetch to give background time to init
+  //   timeoutId = setTimeout(fetchWallet, 300)
 
-  //   // Call once immediately
-  //   tryFetch()
-
-  //   // Start polling every 3 seconds
-  //   interval = setInterval(tryFetch, 3000)
-
-  //   // Cleanup on unmount
+  //   // Reset retry count when component unmounts
   //   return () => {
-  //     if (interval) clearInterval(interval)
+  //     clearTimeout(timeoutId)
+  //     setRetryCount(0)
   //   }
-  // }, [wallet])
+  // }, [navigate, setIsLoading, setWallet, retryCount])
+
+  useEffect(() => {
+    let retryCount = 0
+    let timeoutId: NodeJS.Timeout
+
+    const fetchWallet = async () => {
+      setIsLoading(true)
+      const walletExists = await checkWalletExists()
+      if (!walletExists) {
+        navigate('/set')
+        return
+      }
+
+      try {
+        const walletData = await walletApi.getWallet()
+        if (!walletData) {
+          navigate('/set')
+          return
+        }
+
+        setWallet(Convert.toWallet(walletData))
+        setIsLoading(false)
+      } catch (error) {
+        console.error(
+          `Error fetching wallet (attempt ${retryCount + 1}/3):`,
+          error
+        )
+
+        if (retryCount < 2) {
+          retryCount++
+          timeoutId = setTimeout(fetchWallet, 1000)
+        } else {
+          navigate('/set')
+        }
+      }
+    }
+
+    timeoutId = setTimeout(fetchWallet, 4000)
+
+    return () => clearTimeout(timeoutId)
+  }, [navigate, setIsLoading, setWallet])
+
+  if (isLoading) {
+    return <Loading />
+  }
+
+  if (!wallet) {
+    setIsLoading(true)
+    return
+  }
+
+  const { chains } = wallet
 
   return (
-    <>
-      {loading === true ? (
-        <Loading />
-      ) : (
-        <div className="w-full h-full flex flex-col">
-          <TopBar />
-          <TaskCard />
-          <Menu />
-        </div>
-      )}
-    </>
+    <div className="w-full h-full flex flex-col">
+      <TopBar />
+      <WalletCard walletChain={Object.values(chains)} />
+      <Menu />
+    </div>
   )
 }

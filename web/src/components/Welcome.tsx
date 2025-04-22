@@ -4,12 +4,15 @@ import { useNavigate } from 'react-router-dom'
 import { useWallet } from '../store/WalletProvider'
 
 export default function Welcome() {
-  const { setWallet } = useWallet()
+  const walletContext = useWallet()
+
+  const { importWallet } = walletContext
 
   const navigate = useNavigate()
 
   async function handleRead() {
-    navigate('/home')
+    await walletApi.getWallet()
+    navigate('/')
   }
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -22,10 +25,20 @@ export default function Welcome() {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const contents = event.target?.result as string
-        setWallet(contents)
-        navigate('/home')
+        try {
+          // Make sure importWallet fully completes all IndexedDB operations
+          const ready = await importWallet(contents)
+          if (!ready) return
+          // Add a small delay to ensure IndexedDB has time to commit the transaction
+          setTimeout(() => {
+            navigate('/')
+          }, 500)
+        } catch (error) {
+          console.error('Error importing wallet:', error)
+          // Handle error here
+        }
       }
       reader.readAsText(file)
     }
