@@ -2746,6 +2746,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "futures",
+ "futures-channel",
  "getrandom",
  "indexed_db_futures 0.6.1",
  "js-sys",
