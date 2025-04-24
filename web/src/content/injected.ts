@@ -3,18 +3,29 @@
 
   class LineraProvider {
     request(method: string, params?: any): Promise<any> {
-      return new Promise((resolve, _) => {
+      console.log('[INJECTED] Request:', method, params)
+      return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(2)
-        window.addEventListener(
-          'linera-wallet-response',
-          function listener(event: any) {
-            if (event.detail.id === id) {
-              window.removeEventListener('linera-wallet-response', listener)
+
+        const responseHandler = function listener(event: any) {
+          if (event.detail.id === id) {
+            console.log('[INJECTED] Got response:', event.detail)
+            window.removeEventListener(
+              'linera-wallet-response',
+              responseHandler
+            )
+
+            if (event.detail.message && event.detail.message.error) {
+              reject(event.detail.message.error)
+            } else {
               resolve(event.detail.message)
             }
           }
-        )
+        }
 
+        window.addEventListener('linera-wallet-response', responseHandler)
+
+        console.log('[INJECTED] Dispatching request with ID:', id)
         window.dispatchEvent(
           new CustomEvent('linera-wallet-request', {
             detail: { id, message: { method, params } },
@@ -25,5 +36,4 @@
   }
 
   window.linera = new LineraProvider()
-  console.log('🚀 Linera Wallet injected into window!')
 })()

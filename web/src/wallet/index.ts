@@ -25,8 +25,7 @@ export class Server {
       this.wasmInstance = wasm
 
       chrome.runtime.onConnect.addListener((port) => {
-        if (port.name !== 'notifications') {
-          console.warn('Unknown channel type', port.name)
+        if (port.name !== 'notifications' || 'applications') {
           return
         }
 

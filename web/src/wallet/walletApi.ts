@@ -1,38 +1,53 @@
+let walletPort: chrome.runtime.Port | null = null
+
+function getWalletPort(): chrome.runtime.Port {
+  function reconnect() {
+    walletPort = chrome.runtime.connect({ name: 'notifications' })
+  }
+  if (!walletPort) {
+    walletPort = chrome.runtime.connect({ name: 'notifications' })
+
+    walletPort.onDisconnect.addListener(() => {
+      setTimeout(() => {
+        reconnect()
+      }, 500)
+      walletPort = null
+    })
+  }
+  return walletPort
+}
+
 export const walletApi = {
-  async setWallet(wallet: string) {
-    return await chrome.runtime.sendMessage({
-      target: 'wallet',
-      type: 'set-wallet',
-      wallet,
+  sendMessage<T = any>(msg: any): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const port = getWalletPort()
+      const requestId = Date.now().toString()
+      msg.requestId = requestId
+
+      function handleResponse(response: any) {
+        if (response.requestId !== requestId) return
+        port.onMessage.removeListener(handleResponse)
+        if (response.success) {
+          resolve(response.data)
+        } else {
+          reject(response.error)
+        }
+      }
+
+      port.onMessage.addListener(handleResponse)
+      port.postMessage(msg)
     })
   },
 
-  async createWallet() {
-    return await chrome.runtime.sendMessage({
-      target: 'wallet',
-      type: 'create-wallet',
-    })
+  getWallet() {
+    return this.sendMessage({ type: 'GET_WALLET' })
   },
 
-  async getWallet() {
-    return await chrome.runtime.sendMessage({
-      target: 'wallet',
-      type: 'get-wallet',
-    })
+  setWallet(wallet: string) {
+    return this.sendMessage({ type: 'SET_WALLET', wallet })
   },
 
-  async sayHello() {
-    return await chrome.runtime.sendMessage({
-      target: 'wallet',
-      type: 'say_hello',
-    })
-  },
-
-  async createDB(wallet: string) {
-    return await chrome.runtime.sendMessage({
-      target: 'wallet',
-      type: 'create_db',
-      wallet,
-    })
+  ping() {
+    return this.sendMessage({ type: 'PING' })
   },
 }

@@ -17,16 +17,62 @@ function respond(id: string, message: any) {
 
 window.addEventListener('linera-wallet-request', async (event) => {
   const e = event as RequestEvent
-  const response = await chrome.runtime.sendMessage(e.detail.message)
-  respond(e.detail.id, response)
+
+  try {
+    const backgroundMsg = {
+      type: e.detail.message.method,
+      ...e.detail.message.params,
+    }
+
+    const response = await sendMessage(backgroundMsg)
+    respond(e.detail.id, response)
+  } catch (err) {
+    respond(e.detail.id, { error: err.message || 'MESSAGE NOT FOUND' })
+  }
 })
 
-const notifications = chrome.runtime.connect({ name: 'notifications' })
-notifications.onMessage.addListener((message: any) => {
-  console.debug('content script got notification')
-  window.dispatchEvent(
-    new CustomEvent('linera-wallet-notification', {
-      detail: message,
+let walletPort: chrome.runtime.Port | null = null
+
+function getWalletPort(): chrome.runtime.Port {
+  function reconnect() {
+    walletPort = chrome.runtime.connect({ name: 'applications' })
+    attachListeners(walletPort)
+  }
+
+  function attachListeners(port: chrome.runtime.Port) {
+    port.onDisconnect.addListener(() => {
+      walletPort = null
+      setTimeout(() => {
+        reconnect()
+      }, 500)
     })
-  )
-})
+  }
+
+  if (!walletPort) {
+    walletPort = chrome.runtime.connect({ name: 'applications' })
+    attachListeners(walletPort)
+  }
+
+  return walletPort
+}
+
+function sendMessage<T = any>(msg: any): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const port = getWalletPort()
+    const requestId = Math.random().toString(36).slice(2)
+    msg.requestId = requestId
+
+    function handleResponse(response: any) {
+      if (response.requestId !== requestId) return
+      port.onMessage.removeListener(handleResponse)
+      if (response.success) {
+        resolve(response.data)
+      } else {
+        reject(response.error)
+      }
+    }
+
+    port.onMessage.addListener(handleResponse)
+    port.postMessage(msg)
+  })
+}
