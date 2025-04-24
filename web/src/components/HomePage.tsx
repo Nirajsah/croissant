@@ -510,55 +510,16 @@ export default function HomePage() {
   const navigate = useNavigate()
   const [retryCount, setRetryCount] = useState(0)
 
-  // useEffect(() => {
-  //   let timeoutId: NodeJS.Timeout
-
-  //   const fetchWallet = async () => {
-  //     setIsLoading(true)
-  //     const walletExists = await checkWalletExists()
-  //     if (!walletExists) {
-  //       navigate('/set')
-  //       return
-  //     }
-
-  //     try {
-  //       const walletData = await walletApi.getWallet()
-  //       if (!walletData) {
-  //         navigate('/set')
-  //         return
-  //       }
-  //       setWallet(Convert.toWallet(walletData))
-  //       setIsLoading(false)
-  //     } catch (error) {
-  //       console.error(
-  //         `Error fetching wallet (attempt ${retryCount + 1}/3):`,
-  //         error
-  //       )
-
-  //       if (retryCount < 2) {
-  //         setRetryCount((prev) => prev + 1)
-  //         setTimeout(fetchWallet, 1000)
-  //       } else {
-  //         navigate('/set')
-  //       }
-  //     }
-  //   }
-  //   // Delay before initial fetch to give background time to init
-  //   timeoutId = setTimeout(fetchWallet, 300)
-
-  //   // Reset retry count when component unmounts
-  //   return () => {
-  //     clearTimeout(timeoutId)
-  //     setRetryCount(0)
-  //   }
-  // }, [navigate, setIsLoading, setWallet, retryCount])
-
   useEffect(() => {
-    let retryCount = 0
     let timeoutId: NodeJS.Timeout
 
+    async function wakeUp() {
+      const res = await walletApi.ping()
+      console.log('res', res)
+    }
+    wakeUp()
+
     const fetchWallet = async () => {
-      setIsLoading(true)
       const walletExists = await checkWalletExists()
       if (!walletExists) {
         navigate('/set')
@@ -581,7 +542,7 @@ export default function HomePage() {
         )
 
         if (retryCount < 2) {
-          retryCount++
+          setRetryCount((prev) => prev + 1)
           timeoutId = setTimeout(fetchWallet, 1000)
         } else {
           navigate('/set')
@@ -589,10 +550,10 @@ export default function HomePage() {
       }
     }
 
-    timeoutId = setTimeout(fetchWallet, 4000)
+    timeoutId = setTimeout(fetchWallet, 1000)
 
     return () => clearTimeout(timeoutId)
-  }, [navigate, setIsLoading, setWallet])
+  }, [navigate, setWallet, retryCount])
 
   if (isLoading) {
     return <Loading />
