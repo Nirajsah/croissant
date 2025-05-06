@@ -1,19 +1,10 @@
 import { Server } from '../../wallet'
 
-// Initialize the WASM wallet server
-export async function initWalletServer() {
-  try {
-    await Server.init()
-
-    return true
-  } catch (error) {
-    console.error('Failed to initialize WASM:', error)
-    return false
-  }
-}
-
 // Track if offscreen document is open
 let offscreenDocumentOpen = false
+
+// Connection to offscreen document
+let offscreenPort: chrome.runtime.Port | null = null
 
 // // Create or focus offscreen document
 export async function setupOffscreenDocument() {
@@ -56,12 +47,23 @@ type Message = {
   requestId: string
   type: string
   target: string
+  action: string
 }
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name === 'notifications' || port.name === 'applications') {
-    port.onMessage.addListener((message: any) => {
-      console.log('Message', message)
+  if (port.name === 'application_call') {
+    port.onMessage.addListener((msg) => {
+      console.log('msg', msg)
+      const requestId = msg.requestId
+      const wrap = (data: any, success = true) => {
+        port.postMessage({ requestId, success, data })
+      }
+
+      if (msg.payload.type === 'PING') {
+        port.postMessage('PONG from offscreen')
+      } else {
+        wrap(`Unknown message type: ${msg.type}`, false)
+      }
     })
   }
 })

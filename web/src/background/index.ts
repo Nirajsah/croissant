@@ -1,89 +1,133 @@
-import { setupOffscreenDocument, initWalletServer } from './offscreen/offscreen'
+import { setupOffscreenDocument } from './offscreen/offscreen'
 import { Server } from '../wallet'
-// ;(async function call() {
-//   await setupOffscreenDocument()
-// })()
 
 type Message = {
   requestId: string
   type: string
 }
 
-// chrome.runtime.onConnect.addListener(async (port) => {
-//   port.onMessage.addListener(async (msg: Message) => {
-//     const requestId = msg.requestId
-//     const wrap = (data: any, success = true) => {
-//       console.log('wrap called: ', data)
-//       port.postMessage({ requestId, success, data })
-//     }
-//
-//     if (msg.type === 'PING') {
-//       await initWalletServer()
-//     }
-//
-//     console.log('message', msg)
-//   })
-//
-//   port.onDisconnect.addListener(() => {
-//     console.log('disconnected')
-//   })
-// })
+function makeAppCall(message: any): Promise<any> {
+  return new Promise((resolve, _) => {
+    const port = chrome.runtime.connect({ name: 'application_call' })
+    console.log('message inside appcall', message)
+
+    port.postMessage({ target: 'offscreen', payload: message })
+
+    port.onMessage.addListener(function listener(msg) {
+      resolve(msg)
+      port.onMessage.removeListener(listener) // Clean up
+    })
+  })
+}
 
 // Handle connections from extension UI components
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === 'extension' || port.name === 'applications') {
-    // Forward to offscreen document
     port.onMessage.addListener(async (message) => {
+      const serverInstance = await Server.getInstance()
       const requestId = message.requestId
       const wrap = (data: any, success = true) => {
-        console.log('wrap called', data)
         port.postMessage({ requestId, success, data })
       }
       try {
         await setupOffscreenDocument()
 
         if (port.name === 'extension') {
-          console.log('message', message, port)
-          const s = await Server.run()
-          if (message.type === 'GET_WALLET') wrap(await s.getWallet())
+          try {
+            switch (message.type) {
+              case 'GET_WALLET':
+                const wallet = await serverInstance.getWallet()
+                wrap(wallet)
+                break
+              case 'SET_WALLET':
+                await serverInstance.setWallet(message.wallet)
+                wrap('ok')
+                break
+              case 'PING':
+                await Server.run()
+                wrap('PONG')
+                break
+              default:
+                throw new Error('NOT ALLOWED')
+            }
+          } catch (error: any) {
+            port.postMessage({
+              requestId,
+              success: false,
+              error: error?.message || 'Unknown error',
+            })
+          }
+        } else if (port.name === 'applications') {
+          const res = await makeAppCall(message)
+          wrap(res)
         }
-
-        if (port.name === 'applications') {
-          // Forward the message to offscreen document
-          const response = port.postMessage({
-            target: 'offscreen',
-            action: 'portMessage',
-            portName: port.name,
-            payload: message,
-          })
-
-          port.postMessage(response)
-        }
-        // Send response back to original port
-      } catch (error) {
+      } catch (error: any) {
         port.postMessage({ error: error.message })
       }
     })
   }
 })
 
-// // Handle wallet-related requests
-// async function handleWalletRequest(message, sender, sendResponse) {
+// Forward to offscreen document
+// port.onMessage.addListener(async (message) => {
+//   const serverInstance = await Server.getInstance()
+//   const requestId = message.requestId
+//   const wrap = (data: any, success = true) => {
+//     port.postMessage({ requestId, success, data })
+//   }
 //   try {
 //     await setupOffscreenDocument()
 //
-//     // Forward request to offscreen document
-//     const response = await chrome.runtime.sendMessage({
-//       target: 'offscreen',
-//       action: message.action,
-//       payload: message.payload,
-//     })
+//     if (port.name === 'extension') {
+//       try {
+//         switch (message.type) {
+//           case 'GET_WALLET':
+//             const wallet = await serverInstance.getWallet()
+//             wrap(wallet)
+//             break
+//           case 'SET_WALLET':
+//             await serverInstance.setWallet(message.wallet)
+//             wrap('ok')
+//             break
+//           case 'PING':
+//             await Server.run()
+//             wrap('PONG')
+//             break
+//           default:
+//             throw new Error('NOT ALLOWED')
+//         }
+//       } catch (error: any) {
+//         port.postMessage({
+//           requestId,
+//           success: false,
+//           error: error?.message || 'Unknown error',
+//         })
+//       }
+//     } else if (port.name === 'applications') {
+//       console.log('[SW] Got connection from content script')
 //
-//     sendResponse(response)
+//       // Forward the message to offscreen document
+//       const messageId = message.requestId
+//
+//       console.log('message inside', message, messageId)
+//
+//       port.postMessage({
+//         target: 'offscreen',
+//         action: 'application_call',
+//         ...message,
+//       })
+//     } else {
+//       throw new Error('NOT ALLOWED')
+//     }
+//     // Send response back to original port
 //   } catch (error) {
-//     sendResponse({ error: error.message })
+//     port.postMessage({ error: error.message })
 //   }
-// }
+// })
+//
+// port.onDisconnect.addListener(() => {
+//   console.log('disconnected')
+// })
 
 // Lifecycle management - setup offscreen when service worker starts
 chrome.runtime.onStartup.addListener(setupOffscreenDocument)

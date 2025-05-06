@@ -21,7 +21,7 @@ window.addEventListener('linera-wallet-request', async (event) => {
   try {
     const backgroundMsg = {
       type: e.detail.message.method,
-      ...e.detail.message.params,
+      params: e.detail.message.params,
     }
 
     const response = await sendMessage(backgroundMsg)
