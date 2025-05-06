@@ -15,6 +15,7 @@ export default defineConfig({
         content: resolve(__dirname, 'src/content/index.ts'),
         injected: resolve(__dirname, 'src/content/injected.ts'),
         popup: resolve(__dirname, 'src/popup/index.html'),
+        offscreen: resolve(__dirname, 'src/background/offscreen/index.html'),
       },
       preserveEntrySignatures: 'strict',
       output: {

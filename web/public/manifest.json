@@ -7,7 +7,13 @@
     "default_title": "Croissant",
     "default_popup": "src/popup/index.html"
   },
-  "permissions": ["storage", "unlimitedStorage", "activeTab", "scripting"],
+  "permissions": [
+    "offscreen",
+    "storage",
+    "unlimitedStorage",
+    "activeTab",
+    "scripting"
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval';"
   },
@@ -24,7 +30,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injected.js"],
+      "resources": ["*.js"],
       "matches": ["<all_urls>"]
     }
   ],
