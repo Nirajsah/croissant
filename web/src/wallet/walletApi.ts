@@ -2,10 +2,10 @@ let walletPort: chrome.runtime.Port | null = null
 
 function getWalletPort(): chrome.runtime.Port {
   function reconnect() {
-    walletPort = chrome.runtime.connect({ name: 'notifications' })
+    walletPort = chrome.runtime.connect({ name: 'extension' })
   }
   if (!walletPort) {
-    walletPort = chrome.runtime.connect({ name: 'notifications' })
+    walletPort = chrome.runtime.connect({ name: 'extension' })
 
     walletPort.onDisconnect.addListener(() => {
       setTimeout(() => {

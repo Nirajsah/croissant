@@ -5,11 +5,11 @@ import type { Wallet } from '@linera/client'
 import wasmModuleUrl from '@linera/client/pkg/linera_web_bg.wasm?url'
 
 export class Server {
-  private static initialized = false
+  public static initialized = false
   private static wasmInstance: typeof wasm | null = null
   private static subscribers = new Set<chrome.runtime.Port>()
   private static ready: Promise<void> | null = null
-  private client: Client | null = null
+  public client: Client | null = null
   private wallet: Wallet | null = null
 
   static async init() {
@@ -25,13 +25,14 @@ export class Server {
       this.wasmInstance = wasm
 
       chrome.runtime.onConnect.addListener((port) => {
-        if (port.name !== 'notifications' || 'applications') {
+        if (port.name !== 'notifications' || 'applications' || 'extension') {
           return
         }
 
         this.subscribers.add(port)
         port.onDisconnect.addListener((port) => this.subscribers.delete(port))
       })
+      console.log('wallet initialized ✅')
     } catch (error) {
       console.error('❌ WASM Initialization Failed:', error)
     }
@@ -60,6 +61,13 @@ export class Server {
     }
     const wasm = Server.wasmInstance!
     const jsWallet = await wasm.Wallet.fromJson(wallet)
+
+    this.wallet = jsWallet
+
+    const client = await new wasm.Client(jsWallet)
+
+    this.client = client
+
     // using this jsWallet a client will be created.
   }
 
@@ -69,6 +77,7 @@ export class Server {
     }
     const wasm = Server.wasmInstance!
     const jsWallet = await wasm.Wallet.read()
+
     // using this jsWallet a client will be created.
     return jsWallet
   }
