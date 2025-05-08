@@ -17,6 +17,8 @@ function getWalletPort(): chrome.runtime.Port {
   return walletPort
 }
 
+const target = 'wallet'
+
 export const walletApi = {
   sendMessage<T = any>(msg: any): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -40,14 +42,14 @@ export const walletApi = {
   },
 
   getWallet() {
-    return this.sendMessage({ type: 'GET_WALLET' })
+    return this.sendMessage({ type: 'GET_WALLET', target })
   },
 
   setWallet(wallet: string) {
-    return this.sendMessage({ type: 'SET_WALLET', wallet })
+    return this.sendMessage({ type: 'SET_WALLET', wallet, target })
   },
 
   ping() {
-    return this.sendMessage({ type: 'PING' })
+    return this.sendMessage({ type: 'PING', target })
   },
 }

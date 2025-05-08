@@ -30,7 +30,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["*.js"],
+      "resources": ["*.js", "offscreen.html", "assets/*.js"],
       "matches": ["<all_urls>"]
     }
   ],

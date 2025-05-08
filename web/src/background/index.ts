@@ -1,101 +1,74 @@
-import { setupOffscreenDocument } from './offscreen/offscreen'
-import { Server } from '../wallet'
+/*
+ * Service work should only be used as a proxy for offscreen document,
+ * its main purpose is to send/recieve messages from offscreen document
+ */
 
-type Message = {
-  requestId: string
-  type: string
-}
+import * as offscreen from './offscreen/offscreen.ts'
 
-function makeAppCall(message: any): Promise<any> {
-  return new Promise((resolve, _) => {
-    const port = chrome.runtime.connect({ name: 'application_call' })
-    console.log('message inside appcall', message)
-
-    port.postMessage({ target: 'offscreen', payload: message })
-
-    port.onMessage.addListener(function listener(msg) {
-      resolve(msg)
-      port.onMessage.removeListener(listener) // Clean up
-    })
-  })
-}
-
-// Handle connections from extension UI components
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name === 'extension' || port.name === 'applications') {
-    port.onMessage.addListener(async (message) => {
-      const serverInstance = await Server.getInstance()
-      const requestId = message.requestId
-      const wrap = (data: any, success = true) => {
-        port.postMessage({ requestId, success, data })
-      }
-      try {
-        await setupOffscreenDocument()
-
-        if (port.name === 'extension') {
-          try {
-            switch (message.type) {
-              case 'GET_WALLET':
-                const wallet = await serverInstance.getWallet()
-                wrap(wallet)
-                break
-              case 'SET_WALLET':
-                await serverInstance.setWallet(message.wallet)
-                wrap('ok')
-                break
-              case 'PING':
-                await Server.run()
-                wrap('PONG')
-                break
-              default:
-                throw new Error('NOT ALLOWED')
-            }
-          } catch (error: any) {
-            port.postMessage({
-              requestId,
-              success: false,
-              error: error?.message || 'Unknown error',
-            })
-          }
-        } else if (port.name === 'applications') {
-          const res = await makeAppCall(message)
-          wrap(res)
-        }
-      } catch (error: any) {
-        port.postMessage({ error: error.message })
-      }
-    })
-  }
-})
-
-// Forward to offscreen document
-// port.onMessage.addListener(async (message) => {
-//   const serverInstance = await Server.getInstance()
-//   const requestId = message.requestId
-//   const wrap = (data: any, success = true) => {
-//     port.postMessage({ requestId, success, data })
-//   }
-//   try {
-//     await setupOffscreenDocument()
+// Adding welcome after first installation
+// chrome.sidePanel
+//   .setPanelBehavior({
+//     openPanelOnActionClick: true,
+//   })
+//   .catch(console.error)
 //
-//     if (port.name === 'extension') {
+// chrome.runtime.onInstalled.addListener(async () => {
+//   const windowId = (await chrome.windows.getCurrent()).id
+//   if (windowId === undefined) return
+//   chrome.action.setPopup({ popup: 'src/popup/welcome.html' })
+//   await chrome.action.openPopup({ windowId })
+// })
+
+offscreen.setup()
+
+// import { setupOffscreenDocument } from './offscreen/offscreen'
+
+// type Message = {
+//   requestId: string
+//   type: string
+// }
+//
+// function sendMessage(message: any, connectingPort: string): Promise<any> {
+//   return new Promise((resolve, _) => {
+//     const port = chrome.runtime.connect({ name: connectingPort })
+//
+//     port.postMessage({ target: 'offscreen', payload: message })
+//
+//     port.onMessage.addListener(function listener(msg) {
+//       resolve(msg)
+//       port.onMessage.removeListener(listener) // Clean up
+//     })
+//   })
+// }
+//
+// async function makeAppCall(message: any) {
+//   const APP_PORT = 'application_call'
+//   const { result } = await sendMessage(message, APP_PORT)
+//   return result
+// }
+//
+// async function makeExtCall(message: any) {
+//   const EXT_PORT = 'extension_call'
+//   const { result } = await sendMessage(message, EXT_PORT)
+//   return result
+// }
+//
+// // Handle connections from extension UI components
+// chrome.runtime.onConnect.addListener((port) => {
+//   if (port.name === 'extension' || port.name === 'applications') {
+//     port.onMessage.addListener(async (message) => {
+//       const requestId = message.requestId
+//       const wrap = (data: any, success = true) => {
+//         port.postMessage({ requestId, success, data })
+//       }
 //       try {
-//         switch (message.type) {
-//           case 'GET_WALLET':
-//             const wallet = await serverInstance.getWallet()
-//             wrap(wallet)
-//             break
-//           case 'SET_WALLET':
-//             await serverInstance.setWallet(message.wallet)
-//             wrap('ok')
-//             break
-//           case 'PING':
-//             await Server.run()
-//             wrap('PONG')
-//             break
-//           default:
-//             throw new Error('NOT ALLOWED')
-//         }
+//         await setupOffscreenDocument()
+//         const result =
+//           port.name === 'extension'
+//             ? await makeExtCall(message)
+//             : await makeAppCall(message)
+//
+//         wrap(result)
 //       } catch (error: any) {
 //         port.postMessage({
 //           requestId,
@@ -103,31 +76,9 @@ chrome.runtime.onConnect.addListener((port) => {
 //           error: error?.message || 'Unknown error',
 //         })
 //       }
-//     } else if (port.name === 'applications') {
-//       console.log('[SW] Got connection from content script')
-//
-//       // Forward the message to offscreen document
-//       const messageId = message.requestId
-//
-//       console.log('message inside', message, messageId)
-//
-//       port.postMessage({
-//         target: 'offscreen',
-//         action: 'application_call',
-//         ...message,
-//       })
-//     } else {
-//       throw new Error('NOT ALLOWED')
-//     }
-//     // Send response back to original port
-//   } catch (error) {
-//     port.postMessage({ error: error.message })
+//     })
 //   }
 // })
 //
-// port.onDisconnect.addListener(() => {
-//   console.log('disconnected')
-// })
-
-// Lifecycle management - setup offscreen when service worker starts
-chrome.runtime.onStartup.addListener(setupOffscreenDocument)
+// // Lifecycle management - setup offscreen when service worker starts
+// chrome.runtime.onStartup.addListener(offscreen.setupOffscreenDocument)

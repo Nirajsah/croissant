@@ -1,34 +1,55 @@
 ;(function () {
+  type WalletRequest = QueryApplicationRequest | MutationApplicationRequest
+
+  interface QueryApplicationRequest {
+    type: 'QUERY'
+    applicationId: string
+    query: string
+  }
+
+  interface MutationApplicationRequest {
+    type: 'MUTATION'
+    applicationId: string
+    mutation: string
+  }
+
+  interface WalletResponse {
+    id: string
+    result?: unknown
+    error?: string
+  }
+
   if (window.linera) return // Prevent multiple injections
 
   class LineraProvider {
-    request(method: string, params?: any): Promise<any> {
-      console.log('[INJECTED] Request:', method, params)
+    request<T = unknown>(request: WalletRequest): Promise<T> {
+      console.log('[INJECTED] Request:', request)
       return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(2)
 
-        const responseHandler = function listener(event: any) {
-          if (event.detail.id === id) {
-            console.log('[INJECTED] Got response:', event.detail)
-            window.removeEventListener(
-              'linera-wallet-response',
-              responseHandler
-            )
+        const responseHandler = (event: CustomEvent<WalletResponse>) => {
+          if (event.detail.id !== id) return
 
-            if (event.detail.message && event.detail.message.error) {
-              reject(event.detail.message.error)
-            } else {
-              resolve(event.detail.message)
-            }
-          }
+          console.log('[INJECTED] Got response:', event.detail)
+
+          window.removeEventListener(
+            'linera-wallet-response',
+            responseHandler as EventListener
+          )
+
+          if (event.detail.error) reject(new Error(event.detail.error))
+          else resolve(event.detail.result as T)
         }
 
-        window.addEventListener('linera-wallet-response', responseHandler)
+        window.addEventListener(
+          'linera-wallet-response',
+          responseHandler as EventListener
+        )
 
         console.log('[INJECTED] Dispatching request with ID:', id)
         window.dispatchEvent(
           new CustomEvent('linera-wallet-request', {
-            detail: { id, message: { method, params } },
+            detail: { id, message: request },
           })
         )
       })

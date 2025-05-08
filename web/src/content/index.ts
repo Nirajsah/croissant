@@ -17,11 +17,14 @@ function respond(id: string, message: any) {
 
 window.addEventListener('linera-wallet-request', async (event) => {
   const e = event as RequestEvent
+  console.log('message received in contentscript', e.detail)
 
   try {
     const backgroundMsg = {
-      type: e.detail.message.method,
-      params: e.detail.message.params,
+      type: e.detail.message.type,
+      target: 'wallet',
+      applicationId: e.detail.message.applicationId,
+      query: e.detail.message.query,
     }
 
     const response = await sendMessage(backgroundMsg)

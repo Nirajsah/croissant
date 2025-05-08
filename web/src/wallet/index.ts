@@ -1,18 +1,65 @@
 import * as wasm from '@linera/client'
-import type { Client } from '@linera/client'
-import type { Wallet } from '@linera/client'
+import type { Client, Wallet } from '@linera/client'
 
 import wasmModuleUrl from '@linera/client/pkg/linera_web_bg.wasm?url'
+import * as guard from './message.guard'
 
 export class Server {
-  public static initialized = false
-  private static wasmInstance: typeof wasm | null = null
-  private static subscribers = new Set<chrome.runtime.Port>()
-  private static ready: Promise<void> | null = null
-  public client: Client | null = null
+  private initialized = false
+  private wasmInstance: typeof wasm | null = null
+  private subscribers = new Set<chrome.runtime.Port>()
+
+  private client: Client | null = null
   private wallet: Wallet | null = null
 
-  static async init() {
+  constructor() {}
+
+  async setWallet(wallet: string) {
+    if (!this.initialized || !this.wasmInstance) {
+      await this.init()
+    }
+    const wasm = this.wasmInstance!
+    const jsWallet = await wasm.Wallet.fromJson(wallet)
+
+    this.wallet = jsWallet
+  }
+
+  async getWallet() {
+    if (!this.initialized || !this.wasmInstance) {
+      await this.init()
+    }
+    const wasm = this.wasmInstance!
+    const result = await wasm.Wallet.read()
+
+    if (!result) return
+
+    const [walletStr, jsWallet] = result
+
+    this.wallet = jsWallet
+
+    // Only create a new client if it's not already created
+    if (this.client) {
+      return walletStr
+    }
+
+    // Create the client if not already created
+    this.client = await new wasm.Client(jsWallet)
+
+    this.client.onNotification((notification: any) => {
+      console.debug(
+        'got notification for',
+        this.subscribers.size,
+        'subscribers:',
+        notification
+      )
+      for (const subscriber of this.subscribers.values()) {
+        subscriber.postMessage(notification)
+      }
+    })
+    return walletStr
+  }
+
+  async init() {
     if (this.initialized) return
 
     try {
@@ -24,61 +71,63 @@ export class Server {
       this.initialized = true
       this.wasmInstance = wasm
 
-      chrome.runtime.onConnect.addListener((port) => {
-        if (port.name !== 'notifications' || 'applications' || 'extension') {
-          return
-        }
-
-        this.subscribers.add(port)
-        port.onDisconnect.addListener((port) => this.subscribers.delete(port))
-      })
       console.log('wallet initialized ✅')
     } catch (error) {
       console.error('❌ WASM Initialization Failed:', error)
     }
+
+    chrome.runtime.onConnect.addListener((port) => {
+      if (port.name !== 'applications' && port.name !== 'extension') {
+        return
+      }
+
+      this.subscribers.add(port)
+
+      port.onMessage.addListener(async (message) => {
+        if (message.target !== 'wallet') return false
+
+        const requestId = message.requestId
+        const wrap = (data: any, success = true) => {
+          port.postMessage({ requestId, success, data })
+        }
+
+        // Ensure client is created before using it
+        if (!this.client) {
+          await this.getWallet() // Ensure client is initialized
+        }
+
+        if (guard.isSetWalletRequest(message)) {
+          await this.setWallet(message.wallet)
+        } else if (guard.isGetWalletRequest(message)) {
+          wrap(await this.getWallet())
+        } else if (guard.isQueryApplicationRequest(message)) {
+          // Make sure client is initialized before using it
+          console.log('client', this.client)
+          if (!this.client) {
+            await this.getWallet()
+          }
+          const app = await this.client
+            ?.frontend()
+            .application(message.applicationId)
+
+          console.log('app', app)
+          // const result = await app?.query(message.query)
+          // console.log('result of the reached message', result, app, this.client)
+          wrap('Hello there')
+        } else if (guard.isMutationApplicationRequest(message)) {
+        } else {
+        }
+      })
+
+      port.onDisconnect.addListener((port) => this.subscribers.delete(port))
+    })
   }
 
-  static async run() {
-    if (!this.ready) {
-      this.ready = this.init()
-    }
-    await this.ready
-    if (!this.instance) {
-      this.instance = new Server()
-    }
-    return this.instance
-  }
-
-  // Create one instance of Server
-  static instance: Server | null = null
-  static async getInstance(): Promise<Server> {
-    return await this.run()
-  }
-
-  async setWallet(wallet: string) {
-    if (!Server.initialized || !Server.wasmInstance) {
-      await Server.run()
-    }
-    const wasm = Server.wasmInstance!
-    const jsWallet = await wasm.Wallet.fromJson(wallet)
-
-    this.wallet = jsWallet
-
-    const client = await new wasm.Client(jsWallet)
-
-    this.client = client
-
-    // using this jsWallet a client will be created.
-  }
-
-  async getWallet() {
-    if (!Server.initialized || !Server.wasmInstance) {
-      await Server.run()
-    }
-    const wasm = Server.wasmInstance!
-    const jsWallet = await wasm.Wallet.read()
-
-    // using this jsWallet a client will be created.
-    return jsWallet
+  public static async run() {
+    new Server().init()
+    // const server = new Server()
+    // if (!server.initialized) {
+    //   await server.init()
+    // }
   }
 }
