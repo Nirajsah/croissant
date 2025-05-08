@@ -22,6 +22,7 @@ export class Server {
     const jsWallet = await wasm.Wallet.fromJson(wallet)
 
     this.wallet = jsWallet
+    return 'OK'
   }
 
   async getWallet() {
@@ -29,6 +30,7 @@ export class Server {
       await this.init()
     }
     const wasm = this.wasmInstance!
+
     const result = await wasm.Wallet.read()
 
     if (!result) return
@@ -38,24 +40,24 @@ export class Server {
     this.wallet = jsWallet
 
     // Only create a new client if it's not already created
-    if (this.client) {
-      return walletStr
-    }
+    // if (this.client) {
+    //   return walletStr
+    // }
 
-    // Create the client if not already created
-    this.client = await new wasm.Client(jsWallet)
-
-    this.client.onNotification((notification: any) => {
-      console.debug(
-        'got notification for',
-        this.subscribers.size,
-        'subscribers:',
-        notification
-      )
-      for (const subscriber of this.subscribers.values()) {
-        subscriber.postMessage(notification)
-      }
-    })
+    // // Create the client if not already created
+    // this.client = await new wasm.Client(jsWallet)
+    //
+    // this.client.onNotification((notification: any) => {
+    //   console.debug(
+    //     'got notification for',
+    //     this.subscribers.size,
+    //     'subscribers:',
+    //     notification
+    //   )
+    //   for (const subscriber of this.subscribers.values()) {
+    //     subscriber.postMessage(notification)
+    //   }
+    // })
     return walletStr
   }
 
@@ -84,21 +86,19 @@ export class Server {
       this.subscribers.add(port)
 
       port.onMessage.addListener(async (message) => {
+        console.log('port', message, port)
         if (message.target !== 'wallet') return false
 
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
+          console.log('wrap data', data)
           port.postMessage({ requestId, success, data })
         }
 
-        // Ensure client is created before using it
-        if (!this.client) {
-          await this.getWallet() // Ensure client is initialized
-        }
-
         if (guard.isSetWalletRequest(message)) {
-          await this.setWallet(message.wallet)
+          wrap(await this.setWallet(message.wallet))
         } else if (guard.isGetWalletRequest(message)) {
+          console.log('is this ping message', message)
           wrap(await this.getWallet())
         } else if (guard.isQueryApplicationRequest(message)) {
           // Make sure client is initialized before using it

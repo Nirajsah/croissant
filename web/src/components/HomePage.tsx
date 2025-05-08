@@ -310,10 +310,11 @@ export const Menu = () => {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`relative z-10 px-6 py-1 cursor-pointer inline-flex items-center gap-x-1.5 rounded-full text-sm/5 font-medium sm:text-xs/5
-            ${tab === activeTab
+            ${
+              tab === activeTab
                 ? 'text-lime-700 dark:text-lime-400'
                 : 'text-gray-500 dark:text-gray-300'
-              }
+            }
             `}
           >
             {tab}
@@ -513,13 +514,13 @@ export default function HomePage() {
     let timeoutId: NodeJS.Timeout
 
     async function wakeUp() {
-      const res = await walletApi.ping()
-      console.log('res', res)
+      await walletApi.ping()
     }
     wakeUp()
 
     const fetchWallet = async () => {
       const walletExists = await checkWalletExists()
+
       if (!walletExists) {
         navigate('/set')
         return
@@ -531,8 +532,6 @@ export default function HomePage() {
           navigate('/set')
           return
         }
-
-        console.log("walletData Received", walletData)
 
         setWallet(Convert.toWallet(walletData))
         setIsLoading(false)

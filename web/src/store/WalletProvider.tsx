@@ -17,6 +17,7 @@ export default function WalletProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
   async function importWallet(wallet_json: string): Promise<boolean> {
+    console.log('calling import', wallet)
     return walletApi
       .setWallet(wallet_json)
       .then(() => {
