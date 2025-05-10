@@ -1,17 +1,17 @@
 use base64::prelude::*;
-use js_sys::{global, Reflect};
+use js_sys::Reflect;
 use wasm_bindgen::{prelude::Closure, JsCast, JsError, JsValue};
 use web_sys::{IdbDatabase, IdbFactory, IdbObjectStore, IdbTransactionMode};
 
 /**
  * Methods to Encrypt and Decrypt the wallet
 */
-fn encrypt_wallet(_wallet: &str, _key: &str) -> Result<String, JsError> {
+fn _encrypt_wallet(_wallet: &str, _key: &str) -> Result<String, JsError> {
     // Encrypt the wallet using AES
     todo!()
 }
 
-fn decrypt_wallet(_wallet_hash: &str, _key: &str) -> Result<String, JsError> {
+fn _decrypt_wallet(_wallet_hash: &str, _key: &str) -> Result<String, JsError> {
     // Decrypt the wallet using AES
     todo!()
 }
@@ -42,9 +42,9 @@ pub fn decrypt_wallet_basic(encrypted_wallet: &str) -> Result<String, JsError> {
 }
 
 fn get_indexed_db() -> Result<IdbFactory, JsValue> {
-    let global = global(); // gets `self` in a service worker context
-    let indexed_db = Reflect::get(&global, &JsValue::from_str("indexedDB"))?; // JsValue
-    let idb_factory = indexed_db.dyn_into::<IdbFactory>()?; // IdbFactory
+    let global = js_sys::global(); // Gets `self` or `window`, depending on context
+    let indexed_db = Reflect::get(&global, &JsValue::from_str("indexedDB"))?;
+    let idb_factory = indexed_db.dyn_into::<IdbFactory>()?;
     Ok(idb_factory)
 }
 
