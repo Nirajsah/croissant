@@ -16,6 +16,7 @@ export default defineConfig({
         injected: resolve(__dirname, 'src/content/injected.ts'),
         popup: resolve(__dirname, 'src/popup/index.html'),
         offscreen: resolve(__dirname, 'src/background/offscreen/index.html'),
+        'linera-client': '@linera/client',
       },
       preserveEntrySignatures: 'strict',
       output: {

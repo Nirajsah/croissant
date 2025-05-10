@@ -2,19 +2,17 @@
   "name": "croissant",
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "bun build:client && bun build:web",
-    "build:client": "wasm-pack build client --target web --out-dir pkg",
-    "build:web": "bun --filter web build:extension",
-    "lint": "eslint .",
-    "preview": "vite preview"
-  },
   "private": true,
   "workspaces": [
     "web",
     "client"
   ],
+  "scripts": {
+    "dev": "bun run --cwd web dev",
+    "build": "bun run --cwd client build && bun run --cwd web build",
+    "lint": "eslint .",
+    "preview": "bun run --cwd web preview"
+  },
   "dependencies": {
     "lucide-react": "^0.488.0"
   }

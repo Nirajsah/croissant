@@ -7,10 +7,10 @@ script.onload = function () {
 
 type RequestEvent = CustomEvent<{ id: string; message: any }>
 
-function respond(id: string, message: any) {
+function respond(id: string, result: any) {
   window.dispatchEvent(
     new CustomEvent('linera-wallet-response', {
-      detail: { id, message },
+      detail: { id, result },
     })
   )
 }
@@ -29,8 +29,8 @@ window.addEventListener('linera-wallet-request', async (event) => {
 
     const response = await sendMessage(backgroundMsg)
     respond(e.detail.id, response)
-  } catch (err) {
-    respond(e.detail.id, { error: err.message || 'MESSAGE NOT FOUND' })
+  } catch (_) {
+    console.log(e.detail.id)
   }
 })
 

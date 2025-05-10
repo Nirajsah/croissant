@@ -1,7 +1,6 @@
 import * as wasm from '@linera/client'
 import type { Client, Wallet } from '@linera/client'
 
-import wasmModuleUrl from '@linera/client/pkg/linera_web_bg.wasm?url'
 import * as guard from './message.guard'
 
 export class Server {
@@ -19,10 +18,13 @@ export class Server {
       await this.init()
     }
     const wasm = this.wasmInstance!
-    const jsWallet = await wasm.Wallet.fromJson(wallet)
-
-    this.wallet = jsWallet
-    return 'OK'
+    try {
+      const jsWallet = await wasm.Wallet.fromJson(wallet)
+      this.wallet = jsWallet
+      return 'OK'
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   async getWallet() {
@@ -31,45 +33,41 @@ export class Server {
     }
     const wasm = this.wasmInstance!
 
-    const result = await wasm.Wallet.read()
+    try {
+      const walletStr = await wasm.Wallet.read()
 
-    if (!result) return
+      return walletStr
+    } catch (error) {
+      console.error(error)
+    }
+  }
 
-    const [walletStr, jsWallet] = result
-
-    this.wallet = jsWallet
-
+  async createClient() {
     // Only create a new client if it's not already created
-    // if (this.client) {
-    //   return walletStr
-    // }
-
     // // Create the client if not already created
-    // this.client = await new wasm.Client(jsWallet)
-    //
-    // this.client.onNotification((notification: any) => {
-    //   console.debug(
-    //     'got notification for',
-    //     this.subscribers.size,
-    //     'subscribers:',
-    //     notification
-    //   )
-    //   for (const subscriber of this.subscribers.values()) {
-    //     subscriber.postMessage(notification)
-    //   }
-    // })
-    return walletStr
+    this.wallet = await wasm.Wallet.read_wallet()
+    const client = await new wasm.Client(this.wallet)
+    this.client = client
+
+    this.client.onNotification((notification: any) => {
+      console.debug(
+        'got notification for',
+        this.subscribers.size,
+        'subscribers:',
+        notification
+      )
+      for (const subscriber of this.subscribers.values()) {
+        subscriber.postMessage(notification)
+      }
+    })
   }
 
   async init() {
     if (this.initialized) return
 
     try {
-      const wasmResponse = await fetch(wasmModuleUrl)
-      const wasmBuffer = await wasmResponse.arrayBuffer()
-      await wasm.default({
-        module_or_path: wasmBuffer,
-      })
+      await (await wasm).default()
+
       this.initialized = true
       this.wasmInstance = wasm
 
@@ -91,29 +89,33 @@ export class Server {
 
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
-          console.log('wrap data', data)
-          port.postMessage({ requestId, success, data })
+          port.postMessage({
+            requestId,
+            success,
+            data,
+          })
         }
 
         if (guard.isSetWalletRequest(message)) {
           wrap(await this.setWallet(message.wallet))
         } else if (guard.isGetWalletRequest(message)) {
-          console.log('is this ping message', message)
           wrap(await this.getWallet())
         } else if (guard.isQueryApplicationRequest(message)) {
           // Make sure client is initialized before using it
-          console.log('client', this.client)
           if (!this.client) {
-            await this.getWallet()
+            await this.createClient()
+          }
+          if (!this.client) {
+            wrap('Client Error')
+            return
           }
           const app = await this.client
-            ?.frontend()
+            .frontend()
             .application(message.applicationId)
 
-          console.log('app', app)
-          // const result = await app?.query(message.query)
-          // console.log('result of the reached message', result, app, this.client)
-          wrap('Hello there')
+          const result = await app.query(message.query)
+
+          wrap(result)
         } else if (guard.isMutationApplicationRequest(message)) {
         } else {
         }
@@ -125,9 +127,5 @@ export class Server {
 
   public static async run() {
     new Server().init()
-    // const server = new Server()
-    // if (!server.initialized) {
-    //   await server.init()
-    // }
   }
 }

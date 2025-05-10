@@ -15,14 +15,14 @@
 
   interface WalletResponse {
     id: string
-    result?: unknown
+    result?: any
     error?: string
   }
 
   if (window.linera) return // Prevent multiple injections
 
   class LineraProvider {
-    request<T = unknown>(request: WalletRequest): Promise<T> {
+    request(request: WalletRequest): Promise<WalletResponse> {
       console.log('[INJECTED] Request:', request)
       return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(2)
@@ -38,7 +38,7 @@
           )
 
           if (event.detail.error) reject(new Error(event.detail.error))
-          else resolve(event.detail.result as T)
+          else resolve(event.detail)
         }
 
         window.addEventListener(
@@ -46,7 +46,6 @@
           responseHandler as EventListener
         )
 
-        console.log('[INJECTED] Dispatching request with ID:', id)
         window.dispatchEvent(
           new CustomEvent('linera-wallet-request', {
             detail: { id, message: request },

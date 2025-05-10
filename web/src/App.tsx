@@ -1,6 +1,6 @@
+import React from 'react'
 import HomePage from './components/HomePage'
 import Welcome from './components/Welcome'
-import React from 'react'
 import './index.css'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import WalletProvider from './store/WalletProvider'
