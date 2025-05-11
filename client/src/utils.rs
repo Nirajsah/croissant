@@ -125,11 +125,11 @@ pub async fn persistent_wallet(op: DbOperation) -> Result<Option<String>, JsValu
     let store: IdbObjectStore = tx.object_store(STORE_NAME)?;
 
     match op {
-        DbOperation::Write(key, value) => {
-            store.add_with_key(&JsValue::from_str(&value), &JsValue::from_str(STORE_NAME))?;
+        DbOperation::Write(_key, value) => {
+            store.put_with_key(&JsValue::from_str(&value), &JsValue::from_str(STORE_NAME))?;
             Ok(Some(value))
         }
-        DbOperation::Read(key) => {
+        DbOperation::Read(_key) => {
             let request = store.get(&JsValue::from_str(STORE_NAME))?;
 
             let (sender, receiver) = futures_channel::oneshot::channel();

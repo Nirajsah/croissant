@@ -102,7 +102,7 @@ impl JsFaucet {
 
     // TODO(#40): figure out a way to alias or specify this string for TypeScript
     /// Claims a new chain from the faucet, with a new keypair and some tokens.
-    ///
+    /// Returns the wallet with claimed chain
     /// # Errors
     /// - if we fail to get the list of current validators from the faucet
     /// - if we fail to claim the chain from the faucet
@@ -152,12 +152,11 @@ impl JsFaucet {
             listener.await;
             drop(listen_handle);
         });
-        tracing::info!(
-            "wallet: {}",
-            serde_json::to_string(&context.wallet()).unwrap(),
-        );
+        let wallet = serde_json::to_string(&context.wallet()).unwrap();
 
-        Ok(outcome.chain_id.to_string())
+        tracing::info!("Here is the wallet in string: {:?}", wallet);
+
+        Ok(wallet)
     }
 }
 
@@ -194,7 +193,7 @@ impl JsWallet {
     ///
     /// # Errors
     /// If storage is inaccessible.
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = "readWallet")]
     pub async fn read() -> Result<Option<String>, JsError> {
         // Try from in-memory cache first
         if let Some(wallet_hash) = WALLET.with(|cell| cell.borrow().clone()) {
@@ -227,7 +226,7 @@ impl JsWallet {
     ///
     /// # Errors
     /// If storage is inaccessible.
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = "readJsWallet")]
     pub async fn read_wallet() -> JsResult<JsWallet> {
         // Try from in-memory cache first
         if let Some(wallet_hash) = WALLET.with(|cell| cell.borrow().clone()) {
@@ -257,6 +256,28 @@ impl JsWallet {
             Ok(JsWallet(PersistentWallet::new(serde_json::from_str(
                 data.unwrap().as_str(),
             )?)))
+        }
+    }
+
+    // convert JsWallet to String
+    #[wasm_bindgen(js_name = fromJsWallet)]
+    pub async fn wallet_to_string(wallet: &JsWallet) -> JsResult<String> {
+        let wallet_ref = &wallet.0;
+        let wallet_str = serde_json::to_string(wallet_ref)
+            .map_err(|e| JsError::new(&format!("Serialization error: {e}")))?;
+
+        // Parse the outer JSON to get the inner 'value'
+        let parsed_wallet: serde_json::Value = serde_json::from_str(&wallet_str)
+            .map_err(|e| JsError::new(&format!("Parsing error: {e}")))?;
+
+        if let Some(value) = parsed_wallet.get("value") {
+            let inner_str = serde_json::to_string(value)
+                .map_err(|e| JsError::new(&format!("Inner serialization error: {e}")))?;
+            Ok(inner_str)
+        } else {
+            Err(JsError::new(
+                "Could not find 'value' field in the serialized wallet.",
+            ))
         }
     }
 }

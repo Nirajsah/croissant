@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": [
-      "ES2023"
+      "ES2023",
+      "DOM",
+      "DOM.iterable"
     ],
     "module": "ESNext",
     "skipLibCheck": true,

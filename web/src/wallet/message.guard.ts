@@ -7,6 +7,8 @@ import {
   SetWalletRequest,
   QueryApplicationRequest,
   MutationApplicationRequest,
+  CreateWalletRequest,
+  CreateChainRequest,
 } from './message'
 
 export function isGetWalletRequest(obj: unknown): obj is GetWalletRequest {
@@ -27,6 +29,26 @@ export function isSetWalletRequest(obj: unknown): obj is SetWalletRequest {
     typeof typedObj['target'] === 'string' &&
     typedObj['type'] === 'SET_WALLET' &&
     typeof typedObj['wallet'] === 'string'
+  )
+}
+
+export function isCreateWalletRequest(obj: unknown): obj is GetWalletRequest {
+  const typedObj = obj as CreateWalletRequest
+  return (
+    ((typedObj !== null && typeof typedObj === 'object') ||
+      typeof typedObj === 'function') &&
+    typeof typedObj['target'] === 'string' &&
+    typedObj['type'] === 'CREATE_WALLET'
+  )
+}
+
+export function isCreateChainRequest(obj: unknown): obj is GetWalletRequest {
+  const typedObj = obj as CreateChainRequest
+  return (
+    ((typedObj !== null && typeof typedObj === 'object') ||
+      typeof typedObj === 'function') &&
+    typeof typedObj['target'] === 'string' &&
+    typedObj['type'] === 'CREATE_CHAIN'
   )
 }
 

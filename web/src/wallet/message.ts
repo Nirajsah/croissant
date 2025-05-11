@@ -9,6 +9,16 @@ export type SetWalletRequest = {
   wallet: string
 }
 
+export type CreateWalletRequest = {
+  target: string
+  type: 'CREATE_WALLET'
+}
+
+export type CreateChainRequest = {
+  target: string
+  type: 'CREATE_CHAIN'
+}
+
 export type QueryApplicationRequest = {
   target: string
   type: 'QUERY'
@@ -20,7 +30,7 @@ export type MutationApplicationRequest = {
   target: string
   type: 'MUTATION'
   applicationId: string
-  query: string
+  mutation: string
 }
 
 export * as guards from './message.guard'

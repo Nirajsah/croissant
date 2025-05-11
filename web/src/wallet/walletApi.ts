@@ -52,4 +52,8 @@ export const walletApi = {
   ping() {
     return this.sendMessage({ type: 'PING', target })
   },
+
+  createWallet() {
+    return this.sendMessage({ type: 'CREATE_WALLET', target })
+  },
 }

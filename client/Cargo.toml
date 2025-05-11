@@ -49,11 +49,11 @@ features = ["web", "wasmer", "indexed-db"]
 
 [dependencies.linera-core]
 path = "../../linera-protocol/linera-core"
-features = ["web", "wasmer"]
+features = ["web"]
 
 [dependencies.linera-execution]
 path = "../../linera-protocol/linera-execution"
-features = ["web", "wasmer"]
+features = ["web"]
 
 [dependencies.linera-rpc]
 path = "../../linera-protocol/linera-rpc"
@@ -61,7 +61,7 @@ features = ["web"]
 
 [dependencies.linera-storage]
 path = "../../linera-protocol/linera-storage"
-features = ["web", "wasmer"]
+features = ["web"]
 
 [dependencies.linera-faucet-client]
 path = "../../linera-protocol/linera-faucet/client"

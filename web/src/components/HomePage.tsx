@@ -140,18 +140,21 @@ export const WalletFunctionButtons = () => {
 export const WalletCard = ({
   walletChain,
 }: {
-  walletChain: ChainValue[] | null
+  walletChain: ChainValue[] | any
 }) => {
   const handleCopy = (str: string | undefined) => {
     if (!str) return
     navigator.clipboard.writeText(str)
   }
+  const chains = Array.isArray(walletChain) ? walletChain : [walletChain];
+  console.log("chains in homepage", chains)
+
   return (
     <div className="flex gap-3 flex-col justify-start items-center px-3 h-full">
       <div className="w-full h-full flex max-w-md mt-1 overflow-hidden">
         {/* Card with dark blue gradient background */}
         <div className="flex items-start h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-3">
-          {walletChain?.map((chain, i, arr) => (
+          {chains?.map((chain: any, i: any) => (
             <div
               key={i}
               className="relative min-w-[90%] w-full h-full border border-lime-800/50 p-3 rounded-xl overflow-hidden snap-center"
@@ -310,11 +313,10 @@ export const Menu = () => {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`relative z-10 px-6 py-1 cursor-pointer inline-flex items-center gap-x-1.5 rounded-full text-sm/5 font-medium sm:text-xs/5
-            ${
-              tab === activeTab
+            ${tab === activeTab
                 ? 'text-lime-700 dark:text-lime-400'
                 : 'text-gray-500 dark:text-gray-300'
-            }
+              }
             `}
           >
             {tab}
@@ -411,10 +413,6 @@ export const Menu = () => {
   )
 }
 
-const shortenMiddle = (str: string) => {
-  return `${str.slice(0, 10)}...${str.slice(-10)}`
-}
-
 const Loading = () => {
   return (
     <div className="flex items-center justify-center h-screen">
@@ -474,7 +472,7 @@ const Loading = () => {
 }
 
 export const checkWalletExists = (): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const request = indexedDB.open('linera_wallet')
 
     request.onsuccess = () => {
@@ -528,6 +526,7 @@ export default function HomePage() {
 
       try {
         const walletData = await walletApi.getWallet()
+        console.log("wallet data", walletData)
         if (!walletData) {
           navigate('/set')
           return
@@ -569,7 +568,7 @@ export default function HomePage() {
   return (
     <div className="w-full h-full flex flex-col">
       <TopBar />
-      <WalletCard walletChain={Object.values(chains)} />
+      {wallet.chains && <WalletCard walletChain={Object.values(chains)} />}
       <Menu />
     </div>
   )
