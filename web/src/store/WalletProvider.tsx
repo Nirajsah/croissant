@@ -8,6 +8,8 @@ interface WalletContextType {
   importWallet: (json: string) => Promise<boolean>
   isLoading: boolean
   setIsLoading: (loading: boolean) => void
+  drawerOpen: boolean
+  setDrawerOpen: (state: boolean) => void
 }
 
 export const WalletContext = createContext<WalletContextType | null>(null)
@@ -15,9 +17,9 @@ export const WalletContext = createContext<WalletContextType | null>(null)
 export default function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
 
   async function importWallet(wallet_json: string): Promise<boolean> {
-    console.log('calling import', wallet)
     return walletApi
       .setWallet(wallet_json)
       .then(() => {
@@ -36,6 +38,8 @@ export default function WalletProvider({ children }: { children: ReactNode }) {
     importWallet,
     isLoading,
     setIsLoading,
+    drawerOpen,
+    setDrawerOpen,
   }
 
   return (

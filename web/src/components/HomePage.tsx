@@ -1,21 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Copy, MoreVertical } from 'lucide-react'
+import { Copy, MoreVertical, Settings, Info, PlusCircle } from 'lucide-react'
 import { useWallet } from '../store/WalletProvider'
 import { ChainValue, Convert } from '../walletTypes'
 import { useNavigate } from 'react-router-dom'
 import { walletApi } from '../wallet/walletApi'
-
-const TopBar = () => {
-  return (
-    <div className="relative flex items-center justify-between px-4 w-full min-h-[65px] shadow-sm">
-      <div className="font-medium">Net</div>
-      <div>Croissant</div>
-      <div className="font-medium flex items-center gap-5">
-        <MoreVertical className="w-5 h-5 cursor-pointer" />
-      </div>
-    </div>
-  )
-}
+import NavBar from './NavBar'
 
 export const WalletFunctionButtons = () => {
   return (
@@ -146,8 +135,8 @@ export const WalletCard = ({
     if (!str) return
     navigator.clipboard.writeText(str)
   }
-  const chains = Array.isArray(walletChain) ? walletChain : [walletChain];
-  console.log("chains in homepage", chains)
+  const chains = Array.isArray(walletChain) ? walletChain : [walletChain]
+  console.log('chains in homepage', chains)
 
   return (
     <div className="flex gap-3 flex-col justify-start items-center px-3 h-full">
@@ -313,10 +302,11 @@ export const Menu = () => {
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`relative z-10 px-6 py-1 cursor-pointer inline-flex items-center gap-x-1.5 rounded-full text-sm/5 font-medium sm:text-xs/5
-            ${tab === activeTab
+            ${
+              tab === activeTab
                 ? 'text-lime-700 dark:text-lime-400'
                 : 'text-gray-500 dark:text-gray-300'
-              }
+            }
             `}
           >
             {tab}
@@ -504,71 +494,71 @@ export const checkWalletExists = (): Promise<boolean> => {
 }
 
 export default function HomePage() {
-  const { wallet, isLoading, setWallet, setIsLoading } = useWallet()
-  const navigate = useNavigate()
-  const [retryCount, setRetryCount] = useState(0)
+  // const { wallet, isLoading, setWallet, setIsLoading } = useWallet()
+  // const navigate = useNavigate()
+  // const [retryCount, setRetryCount] = useState(0)
 
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout
+  // useEffect(() => {
+  //   let timeoutId: NodeJS.Timeout
 
-    async function wakeUp() {
-      await walletApi.ping()
-    }
-    wakeUp()
+  //   async function wakeUp() {
+  //     await walletApi.ping()
+  //   }
+  //   wakeUp()
 
-    const fetchWallet = async () => {
-      const walletExists = await checkWalletExists()
+  //   const fetchWallet = async () => {
+  //     const walletExists = await checkWalletExists()
 
-      if (!walletExists) {
-        navigate('/set')
-        return
-      }
+  //     if (!walletExists) {
+  //       navigate('/set')
+  //       return
+  //     }
 
-      try {
-        const walletData = await walletApi.getWallet()
-        console.log("wallet data", walletData)
-        if (!walletData) {
-          navigate('/set')
-          return
-        }
+  //     try {
+  //       const walletData = await walletApi.getWallet()
+  //       console.log('wallet data', walletData)
+  //       if (!walletData) {
+  //         navigate('/set')
+  //         return
+  //       }
 
-        setWallet(Convert.toWallet(walletData))
-        setIsLoading(false)
-      } catch (error) {
-        console.error(
-          `Error fetching wallet (attempt ${retryCount + 1}/3):`,
-          error
-        )
+  //       setWallet(Convert.toWallet(walletData))
+  //       setIsLoading(false)
+  //     } catch (error) {
+  //       console.error(
+  //         `Error fetching wallet (attempt ${retryCount + 1}/3):`,
+  //         error
+  //       )
 
-        if (retryCount < 2) {
-          setRetryCount((prev) => prev + 1)
-          timeoutId = setTimeout(fetchWallet, 1000)
-        } else {
-          navigate('/set')
-        }
-      }
-    }
+  //       if (retryCount < 2) {
+  //         setRetryCount((prev) => prev + 1)
+  //         timeoutId = setTimeout(fetchWallet, 1000)
+  //       } else {
+  //         navigate('/set')
+  //       }
+  //     }
+  //   }
 
-    timeoutId = setTimeout(fetchWallet, 1000)
+  //   timeoutId = setTimeout(fetchWallet, 1000)
 
-    return () => clearTimeout(timeoutId)
-  }, [navigate, setWallet, retryCount])
+  //   return () => clearTimeout(timeoutId)
+  // }, [navigate, setWallet, retryCount])
 
-  if (isLoading) {
-    return <Loading />
-  }
+  // if (isLoading) {
+  //   return <Loading />
+  // }
 
-  if (!wallet) {
-    setIsLoading(true)
-    return
-  }
+  // if (!wallet) {
+  //   setIsLoading(true)
+  //   return
+  // }
 
-  const { chains } = wallet
+  // const { chains } = wallet
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <TopBar />
-      {wallet.chains && <WalletCard walletChain={Object.values(chains)} />}
+    <div className="w-full h-full flex flex-col relative">
+      <NavBar />
+      {/* {wallet.chains && <WalletCard walletChain={Object.values(chains)} />} */}
       <Menu />
     </div>
   )
