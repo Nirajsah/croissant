@@ -11,12 +11,15 @@ export default function Welcome() {
   const navigate = useNavigate()
 
   async function handleCreate() {
-    walletApi.createWallet().then(() => {
-      console.log("handle create called")
-      navigate('/')
-    }).catch((err) => {
-      console.error("Error creating wallet", err)
-    })
+    walletApi
+      .createWallet()
+      .then(() => {
+        console.log('handle create called')
+        navigate('/')
+      })
+      .catch((err) => {
+        console.error('Error creating wallet', err)
+      })
   }
 
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -49,13 +52,13 @@ export default function Welcome() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col justify-center items-center p-6 text-center">
+    <div className="h-full w-full flex flex-col justify-center items-center p-6 text-center text-black">
       <div className="p-4 h-[50%] flex flex-col items-center justify-between">
         <h1 className="text-4xl font-semibold mb-4">Welcome to Croissant</h1>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button
             onClick={handleCreate}
-            className="bg-lime-500/15 group-data-hover:bg-lime-500/25 dark:group-data-hover:bg-lime-500/20 text-lime-700 dark:text-lime-400 py-2 px-4 rounded-xl hover:bg-lime-500/20 transition"
+            className="bg-rose-500/15 group-data-hover:bg-rose-500/25 dark:group-data-hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 py-2 px-4 rounded-xl hover:bg-rose-500/20 transition"
           >
             Create Wallet
           </button>
