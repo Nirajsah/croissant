@@ -1,5 +1,5 @@
 import { useWallet } from '../store/WalletProvider'
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 
 type Field = {
   title: string
@@ -16,10 +16,10 @@ type DrawerData = {
 
 export default function BottomDrawer() {
   const { drawerOpen, setDrawerOpen } = useWallet()
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimatingIn, setIsAnimatingIn] = useState(false)
+  const [isVisible, setIsVisible] = React.useState(false)
+  const [isAnimatingIn, setIsAnimatingIn] = React.useState(false)
 
-  useEffect(() => {
+  React.useEffect(() => {
     let timeout
 
     if (drawerOpen) {
@@ -80,7 +80,7 @@ export default function BottomDrawer() {
             {/** main content */}
             <div className="w-full flex flex-col gap-1 text-sm text-white">
               <div className="flex flex-col gap-3 border border-[#ffffff24] p-3 rounded-lg bg-[#0d0d11]">
-                <div className="">
+                <div>
                   <div className="text-xs text-gray-400">Action</div>
                   <div className="font-medium text-sm">Send Tokens</div>
                 </div>

@@ -5,12 +5,11 @@ import './index.css'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import WalletProvider from './store/WalletProvider'
 import SettingsPage from './components/SettingsPage'
-import NavBar from './components/NavBar'
 
 function App() {
   return (
     <WalletProvider>
-      <div className="font-russo relative font-thin text-white w-[387px] h-[600px] flex flex-col items-center justify-center bg-black">
+      <div className="font-ubuntu font-bold relative text-text-inverted w-[387px] h-[600px] flex flex-col items-center justify-center bg-background-light">
         <MemoryRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />

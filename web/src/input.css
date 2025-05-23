@@ -9,6 +9,13 @@ body {
   @apply antialiased scroll-smooth;
 }
 
+@font-face {
+  font-family: 'Acorn';
+  src: url('/public/Acorn.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

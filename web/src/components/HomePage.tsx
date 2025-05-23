@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Copy, MoreVertical, Settings, Info, PlusCircle } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import { useWallet } from '../store/WalletProvider'
 import { ChainValue, Convert } from '../walletTypes'
 import { useNavigate } from 'react-router-dom'
@@ -8,12 +8,12 @@ import NavBar from './NavBar'
 
 export const WalletFunctionButtons = () => {
   return (
-    <div className="w-full h-[80px] rounded-xl p-4 flex items-center justify-between">
+    <div className="w-full h-[80px] rounded-xl p-4 flex items-center justify-between text-black">
       {/* Send/Transfer Button */}
       <div className="flex flex-col items-center justify-center">
-        <div className="w-10 h-10 bg-lime-700/20 rounded-full flex items-center justify-center mb-1">
+        <div className="w-10 h-10 bg-rose-700/20 rounded-full flex items-center justify-center mb-1">
           <svg
-            className="w-5 h-5 text-white"
+            className="w-5 h-5 text-textprimary"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -27,14 +27,14 @@ export const WalletFunctionButtons = () => {
             />
           </svg>
         </div>
-        <span className="text-xs text-white">Send</span>
+        <span className="text-xs text-textprimary">Send</span>
       </div>
 
       {/* Receive Button */}
       <div className="flex flex-col items-center justify-center">
-        <div className="w-10 h-10 bg-lime-700/20 rounded-full flex items-center justify-center mb-1">
+        <div className="w-10 h-10 bg-rose-700/20 rounded-full flex items-center justify-center mb-1">
           <svg
-            className="w-5 h-5 text-white"
+            className="w-5 h-5 text-textprimary"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -48,14 +48,14 @@ export const WalletFunctionButtons = () => {
             />
           </svg>
         </div>
-        <span className="text-xs text-white">Receive</span>
+        <span className="text-xs text-textprimary">Receive</span>
       </div>
 
       {/* Swap Button */}
       <div className="flex flex-col items-center justify-center">
-        <div className="w-10 h-10 bg-lime-700/20 rounded-full flex items-center justify-center mb-1">
+        <div className="w-10 h-10 bg-rose-700/20 rounded-full flex items-center justify-center mb-1">
           <svg
-            className="w-5 h-5 text-white"
+            className="w-5 h-5 text-textprimary"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -76,14 +76,14 @@ export const WalletFunctionButtons = () => {
             />
           </svg>
         </div>
-        <span className="text-xs text-white">Swap</span>
+        <span className="text-xs text-textprimary">Swap</span>
       </div>
 
       {/* Buy Button */}
       <div className="flex flex-col items-center justify-center">
-        <div className="w-10 h-10 bg-lime-700/20 rounded-full flex items-center justify-center mb-1">
+        <div className="w-10 h-10 bg-rose-700/20 rounded-full flex items-center justify-center mb-1">
           <svg
-            className="w-5 h-5 text-white"
+            className="w-5 h-5 text-textprimary"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -97,15 +97,15 @@ export const WalletFunctionButtons = () => {
             />
           </svg>
         </div>
-        <span className="text-xs text-white">Buy</span>
+        <span className="text-xs text-textprimary">Buy</span>
       </div>
 
       {/* More/Settings Button */}
       <div className="flex flex-col items-center justify-center">
         <div className="flex flex-col items-center justify-center">
-          <div className="w-10 h-10 bg-lime-700/20 rounded-full flex items-center justify-center mb-1">
+          <div className="w-10 h-10 bg-rose-700/20 rounded-full flex items-center justify-center mb-1">
             <svg
-              className="w-5 h-5 text-white"
+              className="w-5 h-5 text-textprimary"
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -119,7 +119,7 @@ export const WalletFunctionButtons = () => {
               />
             </svg>
           </div>
-          <span className="text-xs text-white">Sell</span>
+          <span className="text-xs text-textprimary">Sell</span>
         </div>
       </div>
     </div>
@@ -139,117 +139,120 @@ export const WalletCard = ({
   console.log('chains in homepage', chains)
 
   return (
-    <div className="flex gap-3 flex-col justify-start items-center px-3 h-full">
+    <div className="flex gap-3 flex-col justify-start items-center px-3 mt-2 h-full text-white">
       <div className="w-full h-full flex max-w-md mt-1 overflow-hidden">
         {/* Card with dark blue gradient background */}
-        <div className="flex items-start h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-3">
+        <div className="relative flex items-start h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-3">
           {chains?.map((chain: any, i: any) => (
-            <div
-              key={i}
-              className="relative min-w-[90%] w-full h-full border border-lime-800/50 p-3 rounded-xl overflow-hidden snap-center"
-            >
-              {/* Light effects */}
-              <div className="absolute -top-10 -left-10 w-60 h-40 bg-lime-700/10 rounded-full blur-xl pointer-events-none"></div>
-              <div className="absolute -top-5 -left-5 w-20 h-20 bg-lime-100/10 rounded-full blur-lg pointer-events-none"></div>
-              <div className="absolute -top-16 -right-16 w-80 h-80 bg-lime-400/10 rounded-full blur-3xl pointer-events-none mix-blend-screen"></div>
+            <div className="relative w-full min-w-[93%]">
+              <div
+                className="absolute w-full bg-gray-800 rounded-2xl h-full transition-all duration-300 ease-in-out"
+                style={{
+                  left: '5px',
+                  top: '5px',
+                }}
+              />
+              <div
+                key={i}
+                className="relative w-full h-full bg-rose-400 p-3 rounded-2xl overflow-hidden snap-center"
+              >
+                <div className="relative h-full flex justify-between flex-col">
+                  <div className="flex h-[80px] items-center w-full justify-between">
+                    <h2 className="text-[45px] font-bold text-white">$0.00</h2>
+                    <span>
+                      <svg
+                        width="45"
+                        height="45"
+                        viewBox="0 0 409 409"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <defs>
+                          <mask
+                            id="cutout-mask"
+                            maskUnits="userSpaceOnUse"
+                            x="0"
+                            y="0"
+                            width="409"
+                            height="409"
+                          >
+                            <rect width="409" height="409" fill="white" />
+                            <path
+                              d="M145.5 205L174.5 154H233.5L263 205L233.5 255.5H174.5L145.5 205Z"
+                              fill="black"
+                            />
+                            <path
+                              d="M146 304L131.5 277L277.5 277.5L261.5 304H146Z"
+                              fill="black"
+                            />
+                            <path
+                              d="M262.5 106L277 133L131 132.5L147 106H262.5Z"
+                              fill="black"
+                            />
+                            <path
+                              d="M118.24 154L89 205.254L118.744 255H150L121.769 205.254L150 154H118.24Z"
+                              fill="black"
+                            />
+                            <path
+                              d="M289.76 256L319 204.239L289.256 154H258L286.231 204.239L258 256H289.76Z"
+                              fill="black"
+                            />
+                            <path
+                              d="M100.5 141L87 118L36 204.5L87.5 291.5L100.5 268.5L64.5 204.5L100.5 141Z"
+                              fill="black"
+                            />
+                            <path
+                              d="M308 268.5L321.5 291.5L372.5 205L321 118L308 141L344 205L308 268.5Z"
+                              fill="black"
+                            />
+                          </mask>
+                        </defs>
 
-              {/* Card Content */}
-              <div className="relative h-full flex justify-between flex-col">
-                <div className="flex h-[80px] items-center w-full justify-between">
-                  <h2 className="text-[45px] font-bold text-gray-200">$0.00</h2>
-                  <span>
-                    <svg
-                      width="45"
-                      height="45"
-                      viewBox="0 0 409 409"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <defs>
-                        <mask
-                          id="cutout-mask"
-                          maskUnits="userSpaceOnUse"
-                          x="0"
-                          y="0"
-                          width="409"
-                          height="409"
-                        >
-                          <rect width="409" height="409" fill="white" />
-                          <path
-                            d="M145.5 205L174.5 154H233.5L263 205L233.5 255.5H174.5L145.5 205Z"
-                            fill="black"
-                          />
-                          <path
-                            d="M146 304L131.5 277L277.5 277.5L261.5 304H146Z"
-                            fill="black"
-                          />
-                          <path
-                            d="M262.5 106L277 133L131 132.5L147 106H262.5Z"
-                            fill="black"
-                          />
-                          <path
-                            d="M118.24 154L89 205.254L118.744 255H150L121.769 205.254L150 154H118.24Z"
-                            fill="black"
-                          />
-                          <path
-                            d="M289.76 256L319 204.239L289.256 154H258L286.231 204.239L258 256H289.76Z"
-                            fill="black"
-                          />
-                          <path
-                            d="M100.5 141L87 118L36 204.5L87.5 291.5L100.5 268.5L64.5 204.5L100.5 141Z"
-                            fill="black"
-                          />
-                          <path
-                            d="M308 268.5L321.5 291.5L372.5 205L321 118L308 141L344 205L308 268.5Z"
-                            fill="black"
-                          />
-                        </mask>
-                      </defs>
+                        <circle
+                          cx="204.5"
+                          cy="204.5"
+                          r="204"
+                          fill="#be3636"
+                          mask="url(#cutout-mask)"
+                        />
 
-                      <circle
-                        cx="204.5"
-                        cy="204.5"
-                        r="204"
-                        fill="#a3e635"
-                        mask="url(#cutout-mask)"
-                      />
-
-                      <g fill="none" stroke="black">
-                        <path d="M145.5 205L174.5 154H233.5L263 205L233.5 255.5H174.5L145.5 205Z" />
-                        <path d="M146 304L131.5 277L277.5 277.5L261.5 304H146Z" />
-                        <path d="M262.5 106L277 133L131 132.5L147 106H262.5Z" />
-                        <path d="M118.24 154L89 205.254L118.744 255H150L121.769 205.254L150 154H118.24Z" />
-                        <path d="M289.76 256L319 204.239L289.256 154H258L286.231 204.239L258 256H289.76Z" />
-                        <path d="M100.5 141L87 118L36 204.5L87.5 291.5L100.5 268.5L64.5 204.5L100.5 141Z" />
-                        <path d="M308 268.5L321.5 291.5L372.5 205L321 118L308 141L344 205L308 268.5Z" />
-                      </g>
-                    </svg>
-                  </span>
-                </div>
-                <div className="w-full space-y-2">
-                  <div className="flex items-center space-x-1">
-                    {/* <span className="text-xs text-white">Chain:</span> */}
-                    <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1.5">
-                      {chain.chain_id}
+                        <g fill="none" stroke="black">
+                          <path d="M145.5 205L174.5 154H233.5L263 205L233.5 255.5H174.5L145.5 205Z" />
+                          <path d="M146 304L131.5 277L277.5 277.5L261.5 304H146Z" />
+                          <path d="M262.5 106L277 133L131 132.5L147 106H262.5Z" />
+                          <path d="M118.24 154L89 205.254L118.744 255H150L121.769 205.254L150 154H118.24Z" />
+                          <path d="M289.76 256L319 204.239L289.256 154H258L286.231 204.239L258 256H289.76Z" />
+                          <path d="M100.5 141L87 118L36 204.5L87.5 291.5L100.5 268.5L64.5 204.5L100.5 141Z" />
+                          <path d="M308 268.5L321.5 291.5L372.5 205L321 118L308 141L344 205L308 268.5Z" />
+                        </g>
+                      </svg>
                     </span>
-                    <button
-                      onClick={() => handleCopy(chain.chain_id)} // change with the actual address
-                      className="hover:text-[#a3e635] transition p-1 rounded-full"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    {/* <span className="text-xs text-white">Owner:</span> */}
-                    <span className="truncate py-0.5 text-xs bg-lime-950/20 dark:bg-lime-400/10 text-lime-700 dark:text-lime-400 rounded-full px-1.5">
-                      {chain.key_pair?.Ed25519}
-                    </span>
-                    <button
-                      onClick={() => handleCopy(chain.key_pair?.Ed25519)}
-                      className="hover:text-[#a3e635] transition"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
+                  <div className="w-full space-y-2">
+                    <div className="flex items-center space-x-1">
+                      {/* <span className="text-xs text-textprimary">Chain:</span> */}
+                      <span className="truncate py-0.5 text-xs bg-rose-950/20 dark:bg-rose-950/20 text-rose-300 dark:text-rose-300 rounded-full px-1.5">
+                        {chain.chain_id}
+                      </span>
+                      <button
+                        onClick={() => handleCopy(chain.chain_id)} // change with the actual address
+                        className="hover:text-white transition p-1 rounded-full"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      {/* <span className="text-xs text-textprimary">Owner:</span> */}
+                      <span className="truncate py-0.5 text-xs bg-rose-950/20 dark:bg-rose-950/20 text-rose-300 dark:text-rose-300 rounded-full px-1.5">
+                        {chain.key_pair?.Ed25519}
+                      </span>
+                      <button
+                        onClick={() => handleCopy(chain.key_pair?.Ed25519)}
+                        className="hover:text-white transition"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -266,51 +269,53 @@ export const WalletCard = ({
 export const Menu = () => {
   const tabs = ['Tokens', 'Applications', 'Activity']
   const [activeTab, setActiveTab] = useState('Tokens')
-  const [highlightStyle, setHighlightStyle] = useState({})
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const [shadowPosition, setShadowPosition] = useState({ left: 0, width: 0 })
+  const tabRefs = useRef<any>({})
+
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    const activeTabElement = tabRefs.current[activeTab]
 
-    const activeIndex = tabs.indexOf(activeTab)
-    const tabElements = container.querySelectorAll('span')
-
-    if (tabElements.length && tabElements[activeIndex]) {
-      const el = tabElements[activeIndex] as HTMLElement
-      setHighlightStyle({
-        left: el.offsetLeft,
-        width: el.offsetWidth,
+    if (activeTabElement) {
+      setShadowPosition({
+        left: activeTabElement.offsetLeft,
+        width: activeTabElement.offsetWidth,
       })
     }
   }, [activeTab])
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="flex flex-col w-full h-full mt-2">
       <div
-        className="relative flex text-sm py-2 h-fit items-center justify-around"
         ref={containerRef}
+        className="relative flex justify-center items-center gap-4"
       >
-        {/* animated background highlight */}
+        {/* Animated bottom dark layer */}
         <div
-          className="absolute top-2 bottom-2 bg-lime-500/15 group-data-hover:bg-lime-500/25 dark:group-data-hover:bg-lime-500/20 rounded-full transition-all duration-300"
-          style={{ ...highlightStyle }}
+          className="absolute bg-gray-800 rounded-full h-10 transition-all duration-300 ease-in-out"
+          style={{
+            left: `${shadowPosition.left}px`,
+            width: `${shadowPosition.width}px`,
+            top: '0.5px',
+          }}
         />
 
         {tabs.map((tab) => (
-          <span
+          <div
             key={tab}
+            ref={(el) => (tabRefs.current[tab] = el)}
             onClick={() => setActiveTab(tab)}
-            className={`relative z-10 px-6 py-1 cursor-pointer inline-flex items-center gap-x-1.5 rounded-full text-sm/5 font-medium sm:text-xs/5
-            ${
-              tab === activeTab
-                ? 'text-lime-700 dark:text-lime-400'
-                : 'text-gray-500 dark:text-gray-300'
-            }
+            className={`relative cursor-pointer px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 inline-flex items-center gap-x-1.5 z-10
+              ${
+                tab === activeTab
+                  ? 'text-red-600 bg-red-50 border border-red-200 transform -translate-y-0.5 -translate-x-0.5'
+                  : 'text-gray-500 bg-gray-100 border border-gray-200 hover:bg-gray-200'
+              }
             `}
           >
             {tab}
-          </span>
+          </div>
         ))}
       </div>
 
@@ -320,11 +325,11 @@ export const Menu = () => {
             {/* Crypto Token List */}
             <div className="flex flex-col gap-3">
               {/* Bitcoin Token */}
-              <div className="flex items-center justify-between p-2 bg-black/20 rounded-lg hover:bg-black/30 transition cursor-pointer">
+              <div className="flex items-center justify-between p-2 rounded-lg transition cursor-pointer">
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
                     <svg
-                      className="w-5 h-5 text-white"
+                      className="w-5 h-5 text-textprimary"
                       viewBox="0 0 24 24"
                       fill="none"
                       xmlns="http://www.w3.org/2000/svg"
@@ -339,22 +344,22 @@ export const Menu = () => {
                     </svg>
                   </div>
                   <div>
-                    <div className="font-medium text-white">Bitcoin</div>
-                    <div className="text-xs text-gray-300">BTC</div>
+                    <div className="font-medium text-black">Bitcoin</div>
+                    <div className="text-xs text-black">BTC</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-medium text-white">0.0042 BTC</div>
+                  <div className="font-medium text-black">0.0042 BTC</div>
                   <div className="text-xs text-green-400">$175.32</div>
                 </div>
               </div>
 
               {/* Ethereum Token */}
-              <div className="flex items-center justify-between p-2 bg-black/20 rounded-lg hover:bg-black/30 transition cursor-pointer">
+              <div className="flex items-center justify-between p-2 rounded-lg transition cursor-pointer">
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
                     <svg
-                      className="w-5 h-5 text-white"
+                      className="w-5 h-5 text-textprimary"
                       viewBox="0 0 24 24"
                       fill="none"
                       xmlns="http://www.w3.org/2000/svg"
@@ -369,21 +374,19 @@ export const Menu = () => {
                     </svg>
                   </div>
                   <div>
-                    <div className="font-medium text-white">Ethereum</div>
-                    <div className="text-xs text-gray-300">ETH</div>
+                    <div className="font-medium text-black">Ethereum</div>
+                    <div className="text-xs text-black">ETH</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-medium text-white">0.158 ETH</div>
+                  <div className="font-medium text-black">0.158 ETH</div>
                   <div className="text-xs text-green-400">$287.41</div>
                 </div>
               </div>
             </div>
           </div>
         )}
-        {activeTab === 'Applications' && (
-          <div className="font-thin">Applications content</div>
-        )}
+        {activeTab === 'Applications' && <div>Hello</div>}
         {activeTab === 'Activity' && (
           <div className="w-full flex flex-col gap-2 overflow-hidden h-full">
             <span className="text-xs">Block Height: 10</span>
@@ -420,7 +423,7 @@ const Loading = () => {
           dominantBaseline="middle"
           fontFamily="'Great Vibes', cursive"
           fontSize="60"
-          stroke="#fff"
+          stroke="#000"
           strokeWidth="1"
           fill="transparent"
         >
@@ -494,71 +497,67 @@ export const checkWalletExists = (): Promise<boolean> => {
 }
 
 export default function HomePage() {
-  // const { wallet, isLoading, setWallet, setIsLoading } = useWallet()
-  // const navigate = useNavigate()
-  // const [retryCount, setRetryCount] = useState(0)
+  const { wallet, isLoading, setWallet, setIsLoading } = useWallet()
+  const navigate = useNavigate()
+  const [retryCount, setRetryCount] = useState(0)
 
-  // useEffect(() => {
-  //   let timeoutId: NodeJS.Timeout
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout
 
-  //   async function wakeUp() {
-  //     await walletApi.ping()
-  //   }
-  //   wakeUp()
+    async function wakeUp() {
+      await walletApi.ping()
+    }
+    wakeUp()
 
-  //   const fetchWallet = async () => {
-  //     const walletExists = await checkWalletExists()
+    const fetchWallet = async () => {
+      const walletExists = await checkWalletExists()
+      if (!walletExists) {
+        navigate('/set')
+        return
+      }
+      try {
+        const walletData = await walletApi.getWallet()
+        console.log('wallet data', walletData)
+        if (!walletData) {
+          navigate('/set')
+          return
+        }
+        setWallet(Convert.toWallet(walletData))
+        setIsLoading(false)
+      } catch (error) {
+        console.error(
+          `Error fetching wallet (attempt ${retryCount + 1}/3):`,
+          error
+        )
+        if (retryCount < 2) {
+          setRetryCount((prev) => prev + 1)
+          timeoutId = setTimeout(fetchWallet, 1000)
+        } else {
+          navigate('/set')
+        }
+      }
+    }
 
-  //     if (!walletExists) {
-  //       navigate('/set')
-  //       return
-  //     }
+    timeoutId = setTimeout(fetchWallet, 1000)
 
-  //     try {
-  //       const walletData = await walletApi.getWallet()
-  //       console.log('wallet data', walletData)
-  //       if (!walletData) {
-  //         navigate('/set')
-  //         return
-  //       }
+    return () => clearTimeout(timeoutId)
+  }, [navigate, setWallet, retryCount])
 
-  //       setWallet(Convert.toWallet(walletData))
-  //       setIsLoading(false)
-  //     } catch (error) {
-  //       console.error(
-  //         `Error fetching wallet (attempt ${retryCount + 1}/3):`,
-  //         error
-  //       )
+  if (isLoading) {
+    return <Loading />
+  }
 
-  //       if (retryCount < 2) {
-  //         setRetryCount((prev) => prev + 1)
-  //         timeoutId = setTimeout(fetchWallet, 1000)
-  //       } else {
-  //         navigate('/set')
-  //       }
-  //     }
-  //   }
+  if (!wallet) {
+    setIsLoading(true)
+    return
+  }
 
-  //   timeoutId = setTimeout(fetchWallet, 1000)
-
-  //   return () => clearTimeout(timeoutId)
-  // }, [navigate, setWallet, retryCount])
-
-  // if (isLoading) {
-  //   return <Loading />
-  // }
-
-  // if (!wallet) {
-  //   setIsLoading(true)
-  //   return
-  // }
-
-  // const { chains } = wallet
+  const { chains } = wallet
 
   return (
     <div className="w-full h-full flex flex-col relative">
       <NavBar />
-      {/* {wallet.chains && <WalletCard walletChain={Object.values(chains)} />} */}
+      {wallet.chains && <WalletCard walletChain={Object.values(chains)} />}
       <Menu />
     </div>
   )
