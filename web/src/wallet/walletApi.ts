@@ -56,4 +56,12 @@ export const walletApi = {
   createWallet() {
     return this.sendMessage({ type: 'CREATE_WALLET', target })
   },
+
+  createChain() {
+    return this.sendMessage({ type: 'CREATE_CHAIN', target })
+  },
+
+  getBalances() {
+    return this.sendMessage({ type: 'GET_BALANCE', target })
+  },
 }

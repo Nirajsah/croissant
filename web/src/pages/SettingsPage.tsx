@@ -9,10 +9,10 @@ import {
   Link,
   ChevronLeft,
 } from 'lucide-react'
-import NavBar from './NavBar'
+import NavBar from '../components/NavBar'
 import { useNavigate } from 'react-router-dom'
 import { useWallet } from '../store/WalletProvider'
-import BottomDrawer from './BottomDrawer'
+import BottomDrawer from '../components/BottomDrawer'
 
 type ChainDropdownProps = {
   selectedChain: string

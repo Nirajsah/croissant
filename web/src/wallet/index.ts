@@ -16,6 +16,31 @@ export class Server {
 
   constructor() {}
 
+  async getChainBalance() {
+    if (!this.client) {
+      await this.createClient()
+    }
+    if (!this.client) {
+      return
+    }
+
+    await this.client
+      .chain_balance()
+      .then((bal) => bal)
+      .catch((err) => console.log(err))
+  }
+
+  async getLocalBalance() {
+    if (!this.client) {
+      await this.createClient()
+    }
+    if (!this.client) {
+      return
+    }
+    const bal = await this.client.local_balance()
+    console.log(bal)
+  }
+
   async setWallet(wallet: string) {
     if (!this.initialized || !this.wasmInstance) {
       await this.init()
@@ -52,27 +77,27 @@ export class Server {
     const client = new wasm.Client(this.wallet)
     this.client = client
 
-    this.client.onNotification((notification: any) => {
-      console.debug(
-        'got notification for',
-        this.subscribers.size,
-        'subscribers:',
-        notification
-      )
-      for (const subscriber of this.subscribers.values()) {
-        subscriber.postMessage(notification)
-        console.log('notification', notification)
-      }
-    })
+    // this.client.onNotification((notification: any) => {
+    //   console.debug(
+    //     'got notification for',
+    //     this.subscribers.size,
+    //     'subscribers:',
+    //     notification
+    //   )
+    //   for (const subscriber of this.subscribers.values()) {
+    //     subscriber.postMessage(notification)
+    //     console.log('notification', notification)
+    //   }
+    // })
   }
 
   faucetHandlers: Record<OpType, FaucetHandler> = {
     CREATE_WALLET: async (faucet) => {
-      console.log("Creating a new wallet...")
+      console.log('Creating a new wallet...')
       const wallet = await faucet.createWallet()
-      console.log("new empty wallet",wallet)
+      console.log('new empty wallet', wallet)
       const client = await new wasm.Client(wallet)
-      console.log("client should be working", client)
+      console.log('client should be working', client)
       return faucet.claimChain(client)
     },
 
@@ -91,20 +116,16 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   async faucetAction(op: OpType) {
-    console.log("FaucetAction", op)
-    const FAUCET_URL = 'http://localhost:8079'
-    const faucet = new wasm.Faucet(FAUCET_URL)
-
-    const handler = this.faucetHandlers[op]
-    if (!handler) return 'ERROR: Invalid operation'
-
-    try {
-      const newWallet = await handler.call(this, faucet)
-      console.log("wallet created",newWallet)
-      await this.setWallet(newWallet)
-    } catch (err) {
-      return `ERROR: ${err}`
-    }
+    // const FAUCET_URL = 'http://localhost:8079'
+    // const faucet = new wasm.Faucet(FAUCET_URL)
+    // const handler = this.faucetHandlers[op]
+    // if (!handler) return 'ERROR: Invalid operation'
+    // try {
+    //   const newWallet = await handler.call(this, faucet)
+    //   await this.setWallet(newWallet)
+    // } catch (err) {
+    //   return `ERROR: ${err}`
+    // }
   }
 
   async init() {
@@ -150,9 +171,15 @@ export class Server {
           } else if (guard.isGetWalletRequest(message)) {
             wrap(await this.getWallet())
           } else if (guard.isCreateWalletRequest(message)) {
-            wrap(await this.faucetAction("CREATE_WALLET"))
-          } else if(guard.isCreateChainRequest(message)) {
+            wrap(await this.faucetAction('CREATE_WALLET'))
+          } else if (guard.isCreateChainRequest(message)) {
             wrap(await this.faucetAction('CLAIM_CHAIN'))
+          } else if (message.type === 'GET_BALANCE') {
+            // const balance = {
+            //   chainBalance: await this.getChainBalance(),
+            //   localBalance: await this.getLocalBalance(),
+            // }
+            wrap(await this.getLocalBalance())
           }
         }
 
@@ -178,7 +205,7 @@ export class Server {
             } catch (err) {
               wrap(err)
             }
-          } 
+          }
         }
       })
 
