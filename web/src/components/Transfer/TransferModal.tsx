@@ -1,3 +1,4 @@
+import { walletApi } from '@/wallet/walletApi'
 import { ArrowRight, Check, ChevronDown, Copy, Wallet, X } from 'lucide-react'
 import React, { useState } from 'react'
 
@@ -98,18 +99,19 @@ export function TransferModal({
   }
 
   const handleTransfer = async () => {
-    setLoading(true)
+    // setLoading(true)
     // Simulate transfer process
-    setTimeout(() => {
-      setLoading(false)
-      onConfirm?.({
-        chain: selectedChain,
-        account: selectedAccount,
-        chainId,
-        toAddress,
-        amount,
-      })
-    }, 2000)
+    // setTimeout(() => {
+    //   setLoading(false)
+    //   onConfirm?.({
+    //     chain: selectedChain,
+    //     account: selectedAccount,
+    //     chainId,
+    //     toAddress,
+    //     amount,
+    //   })
+    // }, 2000)
+    await walletApi.setDefaultChain(chainId)
   }
 
   const isFormValid =
@@ -117,55 +119,6 @@ export function TransferModal({
   if (!open) return null
 
   return (
-    // <div className="absolute right-0 top-0 w-full h-full flex items-center justify-center z-50 p-2">
-    //   <div className="w-full bg-gray-300 border h-full p-5 flex flex-col justify-between">
-    //     <div className="flex justify-between items-center">
-    //       <h2 className="text-xl font-semibold">Transfer Tokens</h2>
-    //       <button onClick={onClose} className="hover:text-rose-400">
-    //         <X />
-    //       </button>
-    //     </div>
-
-    //     <div className="border border-black">
-    //       <div className="border border-red-600">
-    //         <input
-    //           type="text"
-    //           placeholder="Recipient address"
-    //           value={to}
-    //           onChange={(e) => setTo(e.target.value)}
-    //           className="w-full p-2 rounded-md border mb-3 dark:bg-zinc-800 dark:text-white"
-    //         />
-
-    //         <input
-    //           type="number"
-    //           placeholder="Amount"
-    //           value={amount}
-    //           onChange={(e) => setAmount(e.target.value)}
-    //           className="w-full p-2 rounded-md border mb-4 dark:bg-zinc-800 dark:text-white"
-    //         />
-    //       </div>
-
-    //       {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-
-    //       <div className="flex justify-end gap-2">
-    //         <button
-    //           onClick={onClose}
-    //           className="px-4 py-2 rounded bg-gray-300 dark:bg-zinc-700"
-    //         >
-    //           Cancel
-    //         </button>
-    //         <button
-    //           onClick={handleConfirm}
-    //           className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-60"
-    //           disabled={loading}
-    //         >
-    //           {loading ? 'Sending...' : 'Confirm'}
-    //         </button>
-    //       </div>
-    //     </div>
-    //   </div>
-    // </div>
-
     <div className="absolute text-black w-full h-full right-0 top-0 flex items-center justify-center z-50 p-2">
       <div className="bg-white w-full h-full p-3 flex flex-col">
         {/* Header */}
@@ -258,8 +211,14 @@ export function TransferModal({
             <div className="space-y-5">
               <div className="flex flex-col">
                 <label className="text-sm font-medium">ChainId</label>
-                <input className="border px-2 py-1" placeholder="chainId" />
+                <input
+                  value={chainId}
+                  onChange={(e) => setChainId(e.target.value)}
+                  className="border px-2 py-1"
+                  placeholder="chainId"
+                />
               </div>
+              {chainId}
 
               <div className="flex flex-col">
                 <label className="text-sm font-medium">Address</label>
@@ -278,7 +237,6 @@ export function TransferModal({
             </button>
             <button
               onClick={handleTransfer}
-              disabled={!isFormValid || loading}
               className="flex-1 py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
             >
               {loading ? (

@@ -10,7 +10,7 @@ export const WalletCard = ({ walletChain }: { walletChain: any[] }) => {
         {chains.map((chain, i) => (
           <div
             key={i}
-            className="relative snap-center min-w-[95%] max-w-[500px] h-full text-white overflow-hidden"
+            className="relative snap-center min-w-[95%] w-full h-full text-white overflow-hidden"
           >
             <svg
               viewBox="0 0 335 200"
