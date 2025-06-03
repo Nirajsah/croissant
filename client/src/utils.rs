@@ -1,4 +1,3 @@
-use base64::prelude::*;
 use js_sys::Reflect;
 use wasm_bindgen::{prelude::Closure, JsCast, JsError, JsValue};
 use web_sys::{IdbDatabase, IdbFactory, IdbObjectStore, IdbTransactionMode};
@@ -6,6 +5,9 @@ use web_sys::{IdbDatabase, IdbFactory, IdbObjectStore, IdbTransactionMode};
 /**
  * Methods to Encrypt and Decrypt the wallet
 */
+// These basic encryption/decryption functions are no longer needed
+// as we will be storing individual fields directly.
+/*
 fn _encrypt_wallet(_wallet: &str, _key: &str) -> Result<String, JsError> {
     // Encrypt the wallet using AES
     todo!()
@@ -15,31 +17,7 @@ fn _decrypt_wallet(_wallet_hash: &str, _key: &str) -> Result<String, JsError> {
     // Decrypt the wallet using AES
     todo!()
 }
-pub fn encrypt_wallet_basic(wallet: &str) -> Result<String, JsError> {
-    // Serialize the wallet to bytes
-    let wallet_bytes = serde_json::to_vec(&wallet)
-        .map_err(|e| JsError::new(&format!("Failed to serialize wallet: {}", e)))?;
-
-    // Encode to Base64 (simple reversible encoding for testing)
-    let encoded_wallet = BASE64_STANDARD.encode(wallet_bytes);
-
-    // Return the Base64 encoded string as "encrypted" data
-    Ok(encoded_wallet)
-}
-
-pub fn decrypt_wallet_basic(encrypted_wallet: &str) -> Result<String, JsError> {
-    // Decode the Base64 string back to bytes
-    let decoded_bytes = BASE64_STANDARD
-        .decode(encrypted_wallet)
-        .map_err(|e| JsError::new(&format!("Failed to decode wallet: {}", e)))?;
-
-    // Deserialize the bytes back to the wallet string
-    let wallet: String = serde_json::from_slice(&decoded_bytes)
-        .map_err(|e| JsError::new(&format!("Failed to deserialize wallet: {}", e)))?;
-
-    // Return the decrypted wallet as a string
-    Ok(wallet)
-}
+*/
 
 fn get_indexed_db() -> Result<IdbFactory, JsValue> {
     let global = js_sys::global(); // Gets `self` or `window`, depending on context
@@ -113,24 +91,30 @@ pub async fn open_db() -> Result<IdbDatabase, JsValue> {
 }
 
 pub enum DbOperation {
-    Read(String),          // Key
-    Write(String, String), // Key and value
+    // Read(String),          // Old: Key
+    // Write(String, String), // Old: Key and value
+    ReadField(String),           // New: Field name (key in IndexedDB)
+    WriteField(String, JsValue), // New: Field name (key in IndexedDB) and serialized value
 }
 
 /// Can read and write from and to db
-pub async fn persistent_wallet(op: DbOperation) -> Result<Option<String>, JsValue> {
+// pub async fn persistent_wallet(op: DbOperation) -> Result<Option<String>, JsValue> { // Old signature
+pub async fn persistent_wallet(op: DbOperation) -> Result<Option<JsValue>, JsValue> {
+    // New signature
     let db = open_db().await?;
 
     let tx = db.transaction_with_str_and_mode(STORE_NAME, IdbTransactionMode::Readwrite)?;
     let store: IdbObjectStore = tx.object_store(STORE_NAME)?;
 
     match op {
-        DbOperation::Write(_key, value) => {
-            store.put_with_key(&JsValue::from_str(&value), &JsValue::from_str(STORE_NAME))?;
+        DbOperation::WriteField(key, value) => {
+            // New write operation
+            store.put_with_key(&value, &JsValue::from_str(&key))?;
             Ok(Some(value))
         }
-        DbOperation::Read(_key) => {
-            let request = store.get(&JsValue::from_str(STORE_NAME))?;
+        DbOperation::ReadField(key) => {
+            // New read operation
+            let request = store.get(&JsValue::from_str(&key))?;
 
             let (sender, receiver) = futures_channel::oneshot::channel();
 
@@ -149,10 +133,11 @@ pub async fn persistent_wallet(op: DbOperation) -> Result<Option<String>, JsValu
             let result = receiver
                 .await
                 .map_err(|e| JsError::new(&format!("Error occurred {:?}", e)))?;
-            let result: String = result
-                .as_string()
-                .ok_or_else(|| JsError::new("Failed to convert JsValue to String"))?;
-            Ok(Some(result))
+            if result.is_undefined() {
+                Ok(None)
+            } else {
+                Ok(Some(result))
+            }
         }
     }
 }
