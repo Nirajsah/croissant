@@ -16,29 +16,34 @@ export class Server {
 
   constructor() {}
 
-  async getChainBalance() {
+  async setDefaultChain(chain_id: string) {
     if (!this.client) {
-      await this.createClient()
+      await this.createClient() // client and wallet should be available
     }
     if (!this.client) {
-      return
+      throw new Error('Client not available')
     }
 
-    await this.client
-      .chain_balance()
-      .then((bal) => bal)
-      .catch((err) => console.log(err))
+    if (!this.wallet) {
+      this.wallet = await wasm.Wallet.readJsWallet()
+    }
+    try {
+      this.wallet.setDefaultChain(await this.client, chain_id) // TODO!(also need to update the wallet, indexeddb)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   async getLocalBalance() {
     if (!this.client) {
       await this.createClient()
     }
-    if (!this.client) {
-      return
+    try {
+      const balance = await this.client?.localBalance()
+      return balance
+    } catch (error) {
+      console.error(error)
     }
-    const bal = await this.client.local_balance()
-    console.log(bal)
   }
 
   async setWallet(wallet: string) {
@@ -47,6 +52,7 @@ export class Server {
     }
     const wasm = this.wasmInstance!
     try {
+      console.log('setWallet called: ', wallet)
       const jsWallet = await wasm.Wallet.fromJson(wallet)
       this.wallet = jsWallet
       return 'OK'
@@ -64,6 +70,8 @@ export class Server {
     try {
       const walletStr = await wasm.Wallet.readWallet()
 
+      console.log('walletStr', walletStr)
+
       return walletStr
     } catch (error) {
       console.error(error)
@@ -72,9 +80,10 @@ export class Server {
 
   async createClient() {
     // Only create a new client if it's not already created
-    // // Create the client if not already created
+    // Create the client if not already created
     this.wallet = await wasm.Wallet.readJsWallet()
     const client = new wasm.Client(this.wallet)
+    this.wallet = await wasm.Wallet.readJsWallet()
     this.client = client
 
     // this.client.onNotification((notification: any) => {
@@ -98,15 +107,18 @@ export class Server {
       console.log('new empty wallet', wallet)
       const client = await new wasm.Client(wallet)
       console.log('client should be working', client)
-      return faucet.claimChain(client)
+      this.client = client
+      return faucet.claimChain(client) // returns wallet.json
     },
 
     CLAIM_CHAIN: async (faucet) => {
       if (!this.wallet) {
         this.wallet = await wasm.Wallet.readJsWallet()
       }
-      const client = new wasm.Client(this.wallet)
-      return faucet.claimChain(client)
+      if (!this.client) {
+        this.client = await new wasm.Client(this.wallet)
+      }
+      return faucet.claimChain(this.client)
     },
   }
 
@@ -116,16 +128,15 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   async faucetAction(op: OpType) {
-    // const FAUCET_URL = 'http://localhost:8079'
-    // const faucet = new wasm.Faucet(FAUCET_URL)
-    // const handler = this.faucetHandlers[op]
-    // if (!handler) return 'ERROR: Invalid operation'
-    // try {
-    //   const newWallet = await handler.call(this, faucet)
-    //   await this.setWallet(newWallet)
-    // } catch (err) {
-    //   return `ERROR: ${err}`
-    // }
+    const FAUCET_URL = 'http://localhost:8079'
+    const faucet = new wasm.Faucet(FAUCET_URL)
+    const handler = this.faucetHandlers[op]
+    if (!handler) return 'ERROR: Invalid operation'
+    try {
+      await handler.call(this, faucet)
+    } catch (err) {
+      return `ERROR: ${err}`
+    }
   }
 
   async init() {
@@ -180,6 +191,9 @@ export class Server {
             //   localBalance: await this.getLocalBalance(),
             // }
             wrap(await this.getLocalBalance())
+          } else if (message.type === 'SET_DEFAULT_CHAIN') {
+            const res = await this.setDefaultChain(message.chain_id)
+            wrap(res)
           }
         }
 
@@ -187,8 +201,10 @@ export class Server {
           if (guard.isQueryApplicationRequest(message)) {
             // Make sure client is initialized before using it
             if (!this.client) {
+              console.log('creating client again for some reason', this.client)
               await this.createClient()
             }
+
             if (!this.client) {
               wrap('Client Error')
               return
@@ -199,7 +215,10 @@ export class Server {
                 .frontend()
                 .application(message.applicationId)
 
+              console.log('application', app)
+
               const result = await app.query(message.query)
+              console.log('application request result:', result)
 
               wrap(result)
             } catch (err) {

@@ -64,4 +64,8 @@ export const walletApi = {
   getBalances() {
     return this.sendMessage({ type: 'GET_BALANCE', target })
   },
+
+  setDefaultChain(chain_id: string) {
+    return this.sendMessage({ type: 'SET_DEFAULT_CHAIN', chain_id, target })
+  },
 }
