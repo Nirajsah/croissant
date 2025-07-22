@@ -488,6 +488,24 @@ impl JsWallet {
 
         Ok(())
     }
+
+    #[wasm_bindgen(js_name = "assignChain")]
+    pub async fn assign(self, client: &mut Client, _chain_id: &str) -> JsResult<()> {
+        let client_context = client.client_context.lock().await;
+
+        // Mutate the wallet in memory
+        /* client_context
+        .wallet
+        .mutate(|wallet| wallet.assign_new_chain_to_owner(owner, chain_id, timestamp))
+        .await??; */
+
+        // After mutating the wallet, save the updated default chain field to IndexedDB
+        let updated_wallet: Wallet = client_context.wallet().clone();
+        let js_wallet = JsWallet(PersistentWallet::new(updated_wallet)); // Create a temporary JsWallet to use the save_fields_to_indexed_db helper
+        js_wallet.save_fields_to_indexed_db().await?;
+
+        Ok(())
+    }
 }
 
 /// The full client API, exposed to the wallet implementation. Calls

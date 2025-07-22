@@ -1,0 +1,99 @@
+{
+  "chains": {
+    "a416d5da467baed501ab83591d601c8db824d25c9ce790ead7e1e27e9949f4c1": {
+      "chain_id": "a416d5da467baed501ab83591d601c8db824d25c9ce790ead7e1e27e9949f4c1",
+      "key_pair": {
+        "Ed25519": "42bef1d841d8580e85778339e02defdd51cdbe8b44300b6757c6e8acfb9f97a6"
+      },
+      "block_hash": null,
+      "timestamp": 1748874736692856,
+      "next_block_height": 0,
+      "pending_proposal": null
+    },
+    "a98dd4332a0383d36bf0131c985c0cb8d45448bc91841bf0737b14d139b3f595": {
+      "chain_id": "a98dd4332a0383d36bf0131c985c0cb8d45448bc91841bf0737b14d139b3f595",
+      "key_pair": {
+        "Ed25519": "0871575627a065d4a08ae39378ac556da9c31a24a89c7073acc6168e75e48387"
+      },
+      "block_hash": null,
+      "timestamp": 1748874721337407,
+      "next_block_height": 0,
+      "pending_proposal": null
+    }
+  },
+  "unassigned_key_pairs": {},
+  "default": "a416d5da467baed501ab83591d601c8db824d25c9ce790ead7e1e27e9949f4c1",
+  "genesis_config": {
+    "committee": {
+      "validators": [
+        {
+          "public_key": "02a8e6e18064cc6c782460f4d0cd3c2146a1f1b65f6009f426684da8873ff9fdef",
+          "account_key": {
+            "Ed25519": "649911a265df33aaeb696a0bd8293c08c1d46441947d142c03058f20747beaf4"
+          },
+          "network": {
+            "protocol": { "Grpc": "ClearText" },
+            "host": "localhost",
+            "port": 9000
+          }
+        }
+      ]
+    },
+    "admin_id": "aee928d4bf3880353b4a3cd9b6f88e6cc6e5ed050860abae439e7782e9b2dfe8",
+    "timestamp": 1748873053681454,
+    "chains": [
+      [
+        {
+          "Ed25519": "443d5b945ab3e0457c8b5379efab451d294897310e6364a37791f5f1833cb0e1"
+        },
+        "1000000."
+      ],
+      [
+        {
+          "Ed25519": "a61dcd10aaee0d907959e8b706b5a78519bd36bc9a64aea08bcf8f2b42504a5f"
+        },
+        "1000000."
+      ],
+      [
+        {
+          "Ed25519": "6ace7a9e7b31add82883dcbe2d4464dc56c4990c4a44acc46295ae1c0ecb14b1"
+        },
+        "1000000."
+      ]
+    ],
+    "policy": {
+      "block": "0.",
+      "fuel_unit": "0.",
+      "read_operation": "0.",
+      "write_operation": "0.",
+      "byte_read": "0.",
+      "byte_written": "0.",
+      "blob_read": "0.",
+      "blob_published": "0.",
+      "blob_byte_read": "0.",
+      "blob_byte_published": "0.",
+      "byte_stored": "0.",
+      "operation": "0.",
+      "operation_byte": "0.",
+      "message": "0.",
+      "message_byte": "0.",
+      "service_as_oracle_query": "0.",
+      "http_request": "0.",
+      "maximum_fuel_per_block": 18446744073709551615,
+      "maximum_service_oracle_execution_ms": 18446744073709551615,
+      "maximum_block_size": 18446744073709551615,
+      "maximum_bytecode_size": 18446744073709551615,
+      "maximum_blob_size": 18446744073709551615,
+      "maximum_published_blobs": 18446744073709551615,
+      "maximum_block_proposal_size": 18446744073709551615,
+      "maximum_bytes_read_per_block": 18446744073709551615,
+      "maximum_bytes_written_per_block": 18446744073709551615,
+      "maximum_oracle_response_bytes": 18446744073709551615,
+      "maximum_http_response_bytes": 18446744073709551615,
+      "http_request_timeout_ms": 18446744073709551615,
+      "http_request_allow_list": ["localhost"]
+    },
+    "network_name": "linera-2025-06-02T14:04:13"
+  },
+  "testing_prng_seed": null
+}

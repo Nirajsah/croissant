@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connect DApp</title>
+    <link rel="stylesheet" href="../index.css" />
+  </head>
+  <body>
+    <div id="app" class="flex flex-col items-center justify-center h-screen bg-gray-100 p-4">
+      <h1 class="text-2xl font-bold mb-4">Connect to DApp?</h1>
+      <p id="dapp-origin" class="text-lg text-gray-700 mb-6 break-all"></p>
+      <div class="flex space-x-4">
+        <button id="connect-button" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+          Connect
+        </button>
+        <button id="cancel-button" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+          Cancel
+        </button>
+      </div>
+    </div>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html> 

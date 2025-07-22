@@ -41,6 +41,7 @@ const NavBar = () => {
     if (option.name === 'Settings') {
       navigate('/settings')
     } else if (option.name === 'New MicroChain') {
+      console.log('calling createChain at Navbar')
       await walletApi.createChain() // Maybe add loading, or confirmation.
     }
   }
