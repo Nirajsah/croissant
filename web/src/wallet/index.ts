@@ -1,6 +1,7 @@
 import * as wasm from '@linera/client'
 import type { Client, Wallet } from '@linera/client'
-
+import { PrivateKey } from "@linera/signer"
+ 
 import * as guard from './message.guard'
 
 type Result<T> = { success: true; data: T } | { success: false; error: string }
@@ -21,7 +22,7 @@ export class Server {
   async setDefaultChain(chain_id: string): Promise<Result<string>> {
     await this._ensureClientAndWallet()
     try {
-      this.wallet!.setDefaultChain(await this.client!, chain_id) // TODO!(also need to update the wallet, indexeddb)
+      // this.wallet!.setDefaultChain(await this.client!, chain_id) // TODO!(also need to update the wallet, indexeddb)
       return { success: true, data: `Default chain set to ${chain_id}` }
     } catch (error) {
       console.error(error)
@@ -40,13 +41,13 @@ export class Server {
     }
   }
 
-  async setWallet(wallet: string): Promise<Result<string>> {
+  async setWallet(_wallet: string): Promise<Result<string>> {
     if (!this.initialized || !this.wasmInstance) {
       await this.init()
     }
-    const wasm = this.wasmInstance!
+    const _wasm_ = this.wasmInstance!
     try {
-      const jsWallet = await wasm.Wallet.fromJson(wallet)
+      const jsWallet = {} as Wallet
       this.wallet = jsWallet
       return { success: true, data: 'Wallet set successfully' }
     } catch (error) {
@@ -59,10 +60,10 @@ export class Server {
     if (!this.initialized || !this.wasmInstance) {
       await this.init()
     }
-    const wasm = this.wasmInstance!
+    const _wasm_ = this.wasmInstance!
 
     try {
-      const walletStr = await wasm.Wallet.readWallet()
+      const walletStr = "" // TODO(GetWallet function not implement in client)
 
       return { success: true, data: walletStr }
     } catch (error) {
@@ -73,25 +74,25 @@ export class Server {
 
   private async _ensureClientAndWallet() {
     if (!this.wallet) {
-      this.wallet = await wasm.Wallet.readJsWallet();
+      // this.wallet = await wasm.Wallet.readJsWallet();
     }
     if (!this.client && this.wallet) {
-      this.client = new wasm.Client(this.wallet);
+      this.client = new wasm.Client(this.wallet, new PrivateKey(""));
     }
   }
 
   faucetHandlers: Record<OpType, FaucetHandler> = {
     CREATE_WALLET: async (faucet) => {
       const wallet = await faucet.createWallet()
-      const client = await new wasm.Client(wallet)
+      const client = new wasm.Client(wallet, new PrivateKey(""))
       this.client = client
       this.wallet = wallet
-      return { success: true, data: await faucet.claimChain(client) }
+      return { success: true, data: await faucet.claimChain(client, "") }
     },
 
     CLAIM_CHAIN: async (faucet) => {
       await this._ensureClientAndWallet()
-      return { success: true, data: await faucet.claimChain(this.client!) }
+      return { success: true, data: await faucet.claimChain(this.client!, "") }
     },
   }
 
