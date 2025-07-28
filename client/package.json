@@ -10,7 +10,7 @@
   "type": "module",
   "scripts": {
     "install": "true",
-    "build": "bash build.bash --release",
+    "build": "wasm-pack build --target web",
     "lint": "cargo fmt --check && cargo clippy -- -W clippy::pedantic",
     "ci": "pnpm lint"
   },

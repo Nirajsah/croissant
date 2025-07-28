@@ -1,107 +1,41 @@
+
 // To parse this data:
 //
-//   import { Convert, Wallet } from "./file";
+//   import { Convert, UserChain } from "./file";
 //
-//   const wallet = Convert.toWallet(json);
+//   const userChain = Convert.toUserChain(json);
 //
 // These functions will throw an error if the JSON doesn't
 // match the expected interface, even if the JSON is valid.
+//
 
-export interface Wallet {
-    chains:               { [key: string]: ChainValue };
-    unassigned_key_pairs: UnassignedKeyPairs;
-    default:              string;
-    genesis_config:       GenesisConfig;
-    testing_prng_seed:    null;
+export interface UserChain {
+    chains:  Chains;
+    default_chain: string;
 }
 
-export interface ChainValue {
-    chain_id:          string;
-    key_pair:          KeyPair;
-    block_hash:        null | string;
-    timestamp:         number;
-    next_block_height: number;
-    pending_proposal:  null;
+export interface Chains {
+    [key: string]: ChainInfo;
 }
 
-export interface KeyPair {
-    Ed25519: string;
-}
-
-export interface GenesisConfig {
-    committee:    Committee;
-    admin_id:     string;
-    timestamp:    number;
-    chains:       Array<Array<KeyPair | string>>;
-    policy:       Policy;
-    network_name: string;
-}
-
-export interface Committee {
-    validators: Validator[];
-}
-
-export interface Validator {
-    public_key:  string;
-    account_key: KeyPair;
-    network:     Network;
-}
-
-export interface Network {
-    protocol: Protocol;
-    host:     string;
-    port:     number;
-}
-
-export interface Protocol {
-    Grpc: string;
-}
-
-export interface Policy {
-    block:                               string;
-    fuel_unit:                           string;
-    read_operation:                      string;
-    write_operation:                     string;
-    byte_read:                           string;
-    byte_written:                        string;
-    blob_read:                           string;
-    blob_published:                      string;
-    blob_byte_read:                      string;
-    blob_byte_published:                 string;
-    byte_stored:                         string;
-    operation:                           string;
-    operation_byte:                      string;
-    message:                             string;
-    message_byte:                        string;
-    service_as_oracle_query:             string;
-    http_request:                        string;
-    maximum_fuel_per_block:              number;
-    maximum_service_oracle_execution_ms: number;
-    maximum_block_size:                  number;
-    maximum_bytecode_size:               number;
-    maximum_blob_size:                   number;
-    maximum_published_blobs:             number;
-    maximum_block_proposal_size:         number;
-    maximum_bytes_read_per_block:        number;
-    maximum_bytes_written_per_block:     number;
-    maximum_oracle_response_bytes:       number;
-    maximum_http_response_bytes:         number;
-    http_request_timeout_ms:             number;
-    http_request_allow_list:             string[];
-}
-
-export interface UnassignedKeyPairs {
+export interface ChainInfo {
+    chainID:         string;
+    owner:           string;
+    blockHash:       null;
+    timestamp:       number;
+    nextBlockHeight: number;
+    pendingProposal: null;
 }
 
 // Converts JSON strings to/from your types
 // and asserts the results of JSON.parse at runtime
 export class Convert {
-    public static toWallet(json: string): Wallet {
-        return cast(JSON.parse(json), r("Wallet"));
+    public static toUserChain(json: string): UserChain {
+        return cast(JSON.parse(json), r("UserChain"));
     }
 
-    public static walletToJson(value: Wallet): string {
-        return JSON.stringify(uncast(value, r("Wallet")), null, 2);
+    public static userChainToJson(value: UserChain): string {
+        return JSON.stringify(uncast(value, r("UserChain")), null, 2);
     }
 }
 
@@ -258,80 +192,18 @@ function r(name: string) {
 }
 
 const typeMap: any = {
-    "Wallet": o([
-        { json: "chains", js: "chains", typ: m(r("ChainValue")) },
-        { json: "unassigned_key_pairs", js: "unassigned_key_pairs", typ: r("UnassignedKeyPairs") },
-        { json: "default", js: "default", typ: "" },
-        { json: "genesis_config", js: "genesis_config", typ: r("GenesisConfig") },
-        { json: "testing_prng_seed", js: "testing_prng_seed", typ: null },
+    "UserChain": o([
+        { json: "chains", js: "chains", typ: r("Chains") },
+        { json: "default_chain", js: "defaultChain", typ: "" },
     ], false),
-    "ChainValue": o([
-        { json: "chain_id", js: "chain_id", typ: "" },
-        { json: "key_pair", js: "key_pair", typ: r("KeyPair") },
-        { json: "block_hash", js: "block_hash", typ: u(null, "") },
+    "Chains": m(r("chainInfo")),
+    "chainInfo": o([
+        { json: "chain_id", js: "chainID", typ: "" },
+        { json: "owner", js: "owner", typ: "" },
+        { json: "block_hash", js: "blockHash", typ: null },
         { json: "timestamp", js: "timestamp", typ: 0 },
-        { json: "next_block_height", js: "next_block_height", typ: 0 },
-        { json: "pending_proposal", js: "pending_proposal", typ: null },
-    ], false),
-    "KeyPair": o([
-        { json: "Ed25519", js: "Ed25519", typ: "" },
-    ], false),
-    "GenesisConfig": o([
-        { json: "committee", js: "committee", typ: r("Committee") },
-        { json: "admin_id", js: "admin_id", typ: "" },
-        { json: "timestamp", js: "timestamp", typ: 0 },
-        { json: "chains", js: "chains", typ: a(a(u(r("KeyPair"), ""))) },
-        { json: "policy", js: "policy", typ: r("Policy") },
-        { json: "network_name", js: "network_name", typ: "" },
-    ], false),
-    "Committee": o([
-        { json: "validators", js: "validators", typ: a(r("Validator")) },
-    ], false),
-    "Validator": o([
-        { json: "public_key", js: "public_key", typ: "" },
-        { json: "account_key", js: "account_key", typ: r("KeyPair") },
-        { json: "network", js: "network", typ: r("Network") },
-    ], false),
-    "Network": o([
-        { json: "protocol", js: "protocol", typ: r("Protocol") },
-        { json: "host", js: "host", typ: "" },
-        { json: "port", js: "port", typ: 0 },
-    ], false),
-    "Protocol": o([
-        { json: "Grpc", js: "Grpc", typ: "" },
-    ], false),
-    "Policy": o([
-        { json: "block", js: "block", typ: "" },
-        { json: "fuel_unit", js: "fuel_unit", typ: "" },
-        { json: "read_operation", js: "read_operation", typ: "" },
-        { json: "write_operation", js: "write_operation", typ: "" },
-        { json: "byte_read", js: "byte_read", typ: "" },
-        { json: "byte_written", js: "byte_written", typ: "" },
-        { json: "blob_read", js: "blob_read", typ: "" },
-        { json: "blob_published", js: "blob_published", typ: "" },
-        { json: "blob_byte_read", js: "blob_byte_read", typ: "" },
-        { json: "blob_byte_published", js: "blob_byte_published", typ: "" },
-        { json: "byte_stored", js: "byte_stored", typ: "" },
-        { json: "operation", js: "operation", typ: "" },
-        { json: "operation_byte", js: "operation_byte", typ: "" },
-        { json: "message", js: "message", typ: "" },
-        { json: "message_byte", js: "message_byte", typ: "" },
-        { json: "service_as_oracle_query", js: "service_as_oracle_query", typ: "" },
-        { json: "http_request", js: "http_request", typ: "" },
-        { json: "maximum_fuel_per_block", js: "maximum_fuel_per_block", typ: 3.14 },
-        { json: "maximum_service_oracle_execution_ms", js: "maximum_service_oracle_execution_ms", typ: 3.14 },
-        { json: "maximum_block_size", js: "maximum_block_size", typ: 3.14 },
-        { json: "maximum_bytecode_size", js: "maximum_bytecode_size", typ: 3.14 },
-        { json: "maximum_blob_size", js: "maximum_blob_size", typ: 3.14 },
-        { json: "maximum_published_blobs", js: "maximum_published_blobs", typ: 3.14 },
-        { json: "maximum_block_proposal_size", js: "maximum_block_proposal_size", typ: 3.14 },
-        { json: "maximum_bytes_read_per_block", js: "maximum_bytes_read_per_block", typ: 3.14 },
-        { json: "maximum_bytes_written_per_block", js: "maximum_bytes_written_per_block", typ: 3.14 },
-        { json: "maximum_oracle_response_bytes", js: "maximum_oracle_response_bytes", typ: 3.14 },
-        { json: "maximum_http_response_bytes", js: "maximum_http_response_bytes", typ: 3.14 },
-        { json: "http_request_timeout_ms", js: "http_request_timeout_ms", typ: 3.14 },
-        { json: "http_request_allow_list", js: "http_request_allow_list", typ: a("") },
-    ], false),
-    "UnassignedKeyPairs": o([
+        { json: "next_block_height", js: "nextBlockHeight", typ: 0 },
+        { json: "pending_proposal", js: "pendingProposal", typ: null },
     ], false),
 };
+

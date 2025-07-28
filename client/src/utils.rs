@@ -1,6 +1,21 @@
+use std::collections::BTreeMap;
+
 use js_sys::Reflect;
+use linera_base::identifiers::ChainId;
+use linera_client::wallet::UserChain;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::{prelude::Closure, JsCast, JsError, JsValue};
 use web_sys::{IdbDatabase, IdbFactory, IdbObjectStore, IdbTransactionMode};
+
+/// UserData will be sent to the wallet client
+#[derive(Clone, Deserialize, Serialize)]
+pub struct UserData {
+    pub chains: BTreeMap<ChainId, UserChain>,
+    pub default_chain: ChainId,
+    /*
+     * 1. Balance needs to sent as well.
+     */
+}
 
 /**
  * Methods to Encrypt and Decrypt the wallet

@@ -1,7 +1,8 @@
 import React from 'react'
 import { RefreshCw } from 'lucide-react'
+import { ChainInfo } from '@/walletTypes'
 
-export const WalletCard = ({ walletChain }: { walletChain: any[] }) => {
+export const WalletCard = ({ walletChain }: { walletChain: ChainInfo[] }) => {
   const chains = Array.isArray(walletChain) ? walletChain : [walletChain]
 
   return (
@@ -31,10 +32,10 @@ export const WalletCard = ({ walletChain }: { walletChain: any[] }) => {
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="truncate bg-rose-950/30 px-2 py-1 rounded-full">
-                    ChainId: {chain.chain_id}
+                    ChainId: {chain.chainID}
                   </span>
                   <span className="truncate bg-rose-950/30 px-2 py-1 rounded-full">
-                    Account: {chain.key_pair.Ed25519}
+                    Account: {chain.owner}
                   </span>
                 </div>
               </div>

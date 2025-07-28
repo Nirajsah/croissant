@@ -18,10 +18,11 @@ use linera_core::{
     node::{ValidatorNode as _, ValidatorNodeProvider as _},
 };
 use linera_faucet_client::Faucet;
-use linera_persistent as persistent;
+use linera_persistent::{self as persistent, Persist};
 use linera_views::store::WithError;
 use serde::Serialize;
 use std::{collections::HashMap, future::Future, sync::Arc};
+use utils::UserData;
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, wasm_bindgen};
 pub mod signer;
@@ -38,6 +39,10 @@ type WebEnvironment =
 
 type JsResult<T> = Result<T, JsError>;
 
+type ClientContext =
+    linera_client::client_context::ClientContext<WebEnvironment, persistent::IndexedDb<Wallet>>;
+type ChainClient = linera_core::client::ChainClient<WebEnvironment>;
+
 async fn get_storage() -> Result<WebStorage, <linera_views::memory::MemoryStore as WithError>::Error>
 {
     linera_storage::DbStorage::maybe_create_and_connect(
@@ -52,11 +57,53 @@ async fn get_storage() -> Result<WebStorage, <linera_views::memory::MemoryStore 
 
 /// A wallet that stores the user's chains and keys in memory.
 #[wasm_bindgen(js_name = "Wallet")]
-pub struct PersistentWallet(persistent::Memory<Wallet>);
+pub struct PersistentWallet(persistent::IndexedDb<Wallet>);
 
-type ClientContext =
-    linera_client::client_context::ClientContext<WebEnvironment, persistent::Memory<Wallet>>;
-type ChainClient = linera_core::client::ChainClient<WebEnvironment>;
+#[wasm_bindgen]
+impl PersistentWallet {
+    /// Attempts to read the wallet from persistent storage.
+    ///
+    /// # Errors
+    /// If storage is inaccessible.
+    #[wasm_bindgen(js_name = "readWallet")]
+    pub async fn read(&self) -> Result<Option<String>, JsError> {
+        let w = &self.0;
+        log::info!("wallet {:?}", w);
+        Ok(None)
+    }
+
+    #[wasm_bindgen]
+    pub fn read_wallet() -> String {
+        "Reading_wallet".to_string()
+    }
+}
+
+/// A wallet that stores the user's chains and keys in memory.
+#[wasm_bindgen(js_name = "InMemoryWallet")]
+pub struct InMemoryWallet(persistent::IndexedDb<Wallet>);
+
+#[wasm_bindgen]
+impl InMemoryWallet {
+    /// Attempts to read the wallet from persistent storage.
+    ///
+    /// # Errors
+    /// If storage is inaccessible.
+    #[wasm_bindgen(js_name = "readWallet")]
+    pub async fn read() -> Result<Option<String>, JsError> {
+        let Some(wallet) = persistent::IndexedDb::<Wallet>::read("linera_db").await? else {
+            return Ok(None);
+        };
+        let we = wallet.into_value();
+        let user_data = UserData {
+            chains: we.chains.clone(),
+            default_chain: we.default_chain().unwrap(),
+        };
+
+        let data = serde_json::to_string(&user_data)?;
+
+        Ok(Some(data))
+    }
+}
 
 // TODO(#13): get from user
 pub const OPTIONS: ClientContextOptions = ClientContextOptions {
@@ -98,9 +145,13 @@ impl JsFaucet {
     /// If we couldn't retrieve the genesis config from the faucet.
     #[wasm_bindgen(js_name = createWallet)]
     pub async fn create_wallet(&self) -> JsResult<PersistentWallet> {
-        Ok(PersistentWallet(persistent::Memory::new(
-            linera_client::wallet::Wallet::new(self.0.genesis_config().await?),
-        )))
+        Ok(PersistentWallet(
+            persistent::IndexedDb::new(
+                "linera_db",
+                linera_client::wallet::Wallet::new(self.0.genesis_config().await?),
+            )
+            .await?,
+        ))
     }
 
     // TODO(#40): figure out a way to alias or specify this string for TypeScript
@@ -138,18 +189,6 @@ impl JsFaucet {
             })
             .await??;
         Ok(description.id().to_string())
-    }
-}
-
-#[wasm_bindgen(js_class = "InMemoryWallet")]
-impl PersistentWallet {
-    /// Attempts to read the wallet from persistent storage.
-    ///
-    /// # Errors
-    /// If storage is inaccessible.
-    #[wasm_bindgen]
-    pub async fn read() -> Result<Option<PersistentWallet>, JsError> {
-        Ok(None)
     }
 }
 

@@ -12,6 +12,7 @@
     "dev": "bun run --cwd web dev",
     "build": "bun run --cwd client build && bun run --cwd web build",
     "build:client": "bun run --cwd client build",
+    "build:web": "bun run --cwd web build",
     "lint": "eslint .",
     "preview": "bun run --cwd web preview"
   },

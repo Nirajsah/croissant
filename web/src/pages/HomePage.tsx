@@ -24,19 +24,20 @@ export default function HomePage() {
     wakeUp()
 
     const fetchWallet = async () => {
-      const walletExists = await checkWalletExists()
+      /* const walletExists = await checkWalletExists()
       if (!walletExists) {
         navigate('/set')
         return
-      }
+      } */
       try {
         const walletData = await walletApi.getWallet()
-        console.log('wallet data', walletData)
+        console.log("Wallet should be here", walletData)
+
         if (!walletData) {
           navigate('/set')
           return
         }
-        setWallet(Convert.toWallet(walletData))
+        setWallet(Convert.toUserChain(walletData))
         setIsLoading(false)
       } catch (error) {
         console.error(
