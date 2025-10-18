@@ -33,4 +33,19 @@ export type MutationApplicationRequest = {
   mutation: string
 }
 
+export type TransactionConfirmationRequest = {
+  target: string
+  type: 'TRANSACTION_CONFIRMATION'
+  requestId: string
+  transactionData: {
+    from: string
+    to: string
+    amount: string
+    type: string
+    applicationId: string
+    mutation?: string
+    query?: string
+  }
+}
+
 export * as guards from './message.guard'

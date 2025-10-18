@@ -6,9 +6,9 @@ import { walletApi } from '../wallet/walletApi'
 import NavBar from '../components/NavBar'
 import { WalletFunction } from '../components/WalletFunction'
 import { Menu } from '../components/Menu'
-import { checkWalletExists } from '../utils/CheckWalletExists'
 import { WalletCard } from '../components/WalletCard'
 import Loading from '../components/Loading'
+import { checkWalletExists } from '@/utils/CheckWalletExists'
 
 export default function HomePage() {
   const { wallet, isLoading, setWallet, setIsLoading } = useWallet()
@@ -16,7 +16,7 @@ export default function HomePage() {
   const [retryCount, setRetryCount] = React.useState(0)
 
   React.useEffect(() => {
-    let timeoutId: NodeJS.Timeout
+    let timeoutId: any
 
     async function wakeUp() {
       await walletApi.ping()
@@ -24,11 +24,11 @@ export default function HomePage() {
     wakeUp()
 
     const fetchWallet = async () => {
-      /* const walletExists = await checkWalletExists()
+      const walletExists = await checkWalletExists()
       if (!walletExists) {
         navigate('/set')
         return
-      } */
+      }
       try {
         const walletData = await walletApi.getWallet()
         console.log("Wallet should be here", walletData)

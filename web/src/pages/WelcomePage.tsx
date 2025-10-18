@@ -11,10 +11,13 @@ export default function Welcome() {
   const navigate = useNavigate()
 
   async function handleCreate() {
+    console.log("trying to create")
+
     walletApi
       .createWallet()
-      .then(() => {
-        console.log('handle create called')
+      .then(data => {
+        console.log('handle create called: ', data)
+        // should not navigate, need to show, mnemonic to the user
         navigate('/')
       })
       .catch((err) => {

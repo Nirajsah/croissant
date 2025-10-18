@@ -9,6 +9,7 @@ import {
   MutationApplicationRequest,
   CreateWalletRequest,
   CreateChainRequest,
+  TransactionConfirmationRequest,
 } from './message'
 
 export function isGetWalletRequest(obj: unknown): obj is GetWalletRequest {
@@ -66,9 +67,22 @@ export function isQueryApplicationRequest(
   )
 }
 
-export function isMutationApplicationRequest(
+export function isTempChainRequest(
   obj: unknown
 ): obj is QueryApplicationRequest {
+  const typedObj = obj as QueryApplicationRequest
+  return (
+    ((typedObj !== null && typeof typedObj === 'object') ||
+      typeof typedObj === 'function') &&
+    typeof typedObj['target'] === 'string' &&
+    typedObj['type'] === 'QUERY' &&
+    typeof typedObj['applicationId'] === 'string' &&
+    typeof typedObj['query'] === 'string'
+  )
+}
+export function isMutationApplicationRequest(
+  obj: unknown
+): obj is MutationApplicationRequest {
   const typedObj = obj as MutationApplicationRequest
   return (
     ((typedObj !== null && typeof typedObj === 'object') ||
@@ -77,5 +91,25 @@ export function isMutationApplicationRequest(
     typedObj['type'] === 'MUTATION' &&
     typeof typedObj['applicationId'] === 'string' &&
     typeof typedObj['mutation'] === 'string'
+  )
+}
+
+export function isTransactionConfirmationRequest(
+  obj: unknown
+): obj is TransactionConfirmationRequest {
+  const typedObj = obj as TransactionConfirmationRequest
+  return (
+    ((typedObj !== null && typeof typedObj === 'object') ||
+      typeof typedObj === 'function') &&
+    typeof typedObj['target'] === 'string' &&
+    typedObj['type'] === 'TRANSACTION_CONFIRMATION' &&
+    typeof typedObj['requestId'] === 'string' &&
+    typeof typedObj['transactionData'] === 'object' &&
+    typedObj['transactionData'] !== null &&
+    typeof typedObj['transactionData']['from'] === 'string' &&
+    typeof typedObj['transactionData']['to'] === 'string' &&
+    typeof typedObj['transactionData']['amount'] === 'string' &&
+    typeof typedObj['transactionData']['type'] === 'string' &&
+    typeof typedObj['transactionData']['applicationId'] === 'string'
   )
 }
