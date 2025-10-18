@@ -1,0 +1,42 @@
+{
+  "name": "@linera/wasm-client",
+  "version": "0.0.1",
+  "description": "Web client for the Linera blockchain",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/linera_web.js",
+  "types": "dist/linera_web.d.ts",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "install": "true",
+    "build": "bash build.bash --release",
+    "prepare": "pnpm build",
+    "lint": "pnpm build && pnpm exec tsc && cargo fmt --check && cargo clippy",
+    "ci": "pnpm lint && pnpm doc",
+    "format": "pnpm exec prettier . --write",
+    "doc": "pnpm exec typedoc"
+  },
+  "dependencies": {
+    "ethers": "^6.14.3"
+  },
+  "keywords": [],
+  "author": "Linera <contact@linera.io>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/linera-io/linera-protocol.git"
+  },
+  "bugs": {
+    "url": "https://github.com/linera-io/linera-protocol/issues"
+  },
+  "homepage": "https://github.com/linera-io/linera-protocol/tree/main/linera-web#readme",
+  "devDependencies": {
+    "prettier": "3.5.3",
+    "typedoc": "^0.28.5",
+    "typedoc-plugin-markdown": "^4.7.0"
+  }
+}
