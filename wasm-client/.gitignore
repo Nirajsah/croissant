@@ -1,3 +1,4 @@
 /target/
 pnpm-lock.yaml
 dist/
+.DS_Store

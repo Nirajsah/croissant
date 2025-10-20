@@ -22,13 +22,10 @@ policies, including in-memory keys and signing using an existing MetaMask wallet
 pub mod signer;
 pub mod utils;
 
-use std::{collections::HashMap, future::Future, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashMap, future::Future, panic, sync::Arc, time::Duration};
 
 use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex, stream::StreamExt};
-use linera_base::{
-    data_types::Timestamp,
-    identifiers::{AccountOwner, ApplicationId, ChainId},
-};
+use linera_base::identifiers::{AccountOwner, ApplicationId};
 use linera_client::{
     chain_listener::{ChainListener, ChainListenerConfig, ClientContext as _},
     client_options::ClientContextOptions,
@@ -39,7 +36,7 @@ use linera_core::{
     node::{ValidatorNode as _, ValidatorNodeProvider as _},
 };
 use linera_faucet_client::Faucet;
-use linera_persistent as persistent;
+use linera_persistent::{self as persistent, PersistExt};
 use linera_views::store::WithError;
 use serde::ser::Serialize as _;
 use wasm_bindgen::prelude::*;
@@ -78,10 +75,6 @@ pub struct PersistentWallet {
     wallet: persistent::Memory<Wallet>,
     storage: IndexedDbStorage,
 }
-
-// #[wasm_bindgen(js_name = "Wallet")]
-// pub struct PersistentWallet(persistent::Memory<Wallet>);
-
 type ClientContext =
     linera_client::client_context::ClientContext<WebEnvironment, persistent::Memory<Wallet>>;
 type ChainClient = linera_core::client::ChainClient<WebEnvironment>;
@@ -139,18 +132,21 @@ impl JsFaucet {
 
         let storage = IndexedDbStorage::new("linera", "ldb", 2u32);
 
-        tracing::info!(
-            "requesting create chain storage ✅, gc: {:?} ",
-            self.0.genesis_config().await?
-        );
-
         let wallet = persistent::Memory::new(linera_client::wallet::Wallet::new(
             self.0.genesis_config().await?,
         ));
 
-        tracing::info!("requesting wallet ✅ {:?}", wallet.default);
+        tracing::info!("wallet created ✅");
+
         let p = PersistentWallet::new(wallet, storage);
-        p.save_to_storage(true).await?;
+        tracing::info!("persistent wallet created ✅");
+
+        tracing::info!("calling save_to_storage...");
+        p.save_to_storage(true).await.map_err(|e| {
+            tracing::error!("save_to_storage failed: {:?}", e);
+            e
+        })?;
+        tracing::info!("save_to_storage completed ✅");
 
         Ok(p)
     }
@@ -268,58 +264,53 @@ impl PersistentWallet {
         Ok(p)
     }
 
-    #[wasm_bindgen(js_name = assignChain)]
-    pub async fn assign_chain(
-        &mut self,
-        owner: JsValue,
-        id: JsValue,
-        timestamp: JsValue,
-    ) -> JsResult<JsValue> {
-        use persistent::PersistExt as _;
-        let account_owner: AccountOwner = serde_wasm_bindgen::from_value(owner)?;
-        let chain_id: ChainId = ChainId::from_str(&id.as_string().unwrap()).unwrap();
-        let timestamp =
-            Timestamp::from(timestamp.as_string().unwrap().parse::<u64>().ok().unwrap());
+    pub async fn save_to_storage(&self, gn_flag: bool) -> Result<(), JsError> {
+        tracing::info!("called to save to storage");
 
-        self.wallet
-            .mutate(|wallet| wallet.assign_new_chain_to_owner(account_owner, chain_id, timestamp))
-            .await??;
+        tracing::info!("serializing chains...");
+        let chains_value = serde_wasm_bindgen::to_value(&self.wallet.chains)
+            .map_err(|e| JsError::new(&format!("Failed to serialize chains: {}", e)))?;
+        tracing::info!("chains serialized ✅");
 
-        self.save_to_storage(false).await?;
+        tracing::info!("serializing default...");
+        let default_value = serde_wasm_bindgen::to_value(&self.wallet.default)
+            .map_err(|e| JsError::new(&format!("Failed to serialize default: {}", e)))?;
+        tracing::info!("default serialized ✅");
 
-        Ok(id)
-    }
-
-    pub async fn save_to_storage(&self, gn: bool) -> Result<(), JsError> {
         let mut fields = vec![
-            (
-                "chains".to_string(),
-                serde_wasm_bindgen::to_value(&self.wallet.chains)
-                    .map_err(|e| JsError::new(&format!("Failed to serialize chains: {}", e)))?,
-            ),
-            (
-                "default".to_string(),
-                serde_wasm_bindgen::to_value(&self.wallet.default)
-                    .map_err(|e| JsError::new(&format!("Failed to serialize default: {}", e)))?,
-            ),
+            ("chains".to_string(), chains_value),
+            ("default".to_string(), default_value),
         ];
 
-        let genesis = (
-            "genesis".to_string(),
-            serde_wasm_bindgen::to_value(&self.wallet.genesis_config())
-                .map_err(|e| JsError::new(&format!("Failed to serialize default: {}", e)))?,
-        );
+        /* if gn_flag {
+            tracing::info!("serializing genesis...");
+            let genesis_value = serde_wasm_bindgen::to_value(&self.wallet.genesis_config())
+                .map_err(|e| JsError::new(&format!("Failed to serialize genesis: {}", e)))?;
+            tracing::info!("genesis serialized ✅");
+            fields.push(("genesis".to_string(), genesis_value));
+        } */
 
-        if gn {
-            fields.push(genesis);
+        if gn_flag {
+            tracing::info!("serializing genesis to JSON string...");
+            let genesis_json = serde_json::to_string(self.wallet.genesis_config())
+                .map_err(|e| JsError::new(&format!("Failed to serialize genesis: {}", e)))?;
+            tracing::info!("genesis serialized as JSON ✅");
+
+            // Store as a string in IndexedDB
+            fields.push(("genesis".to_string(), JsValue::from_str(&genesis_json)));
         }
 
-        self.storage.write_fields(fields).await
+        tracing::info!("about to call write_fields with {} fields", fields.len());
+
+        let result = self.storage.write_fields(fields).await;
+        tracing::info!("write_fields returned: {:?}", result);
+        result
     }
 }
 
 impl PersistentWallet {
     pub fn new(wallet: persistent::Memory<Wallet>, storage: IndexedDbStorage) -> Self {
+        tracing::info!("called to persist");
         Self { wallet, storage }
     }
 }
@@ -406,6 +397,60 @@ impl Client {
         Ok(Self { client_context })
     }
 
+    // Add this method inside `impl Client { ... }`
+
+    /// Assigns a chain to the provided wallet key using only the ChainId (string).
+    ///
+    /// JS usage:
+    ///   // wallet is a PersistentWallet obtained from Faucet.createWallet()
+    ///   // owner is an AccountOwner value (e.g. string) or you can pass the signer's address
+    ///   await client.assignChain(wallet, owner, chainIdString);
+    #[wasm_bindgen(js_name = assignChain)]
+    pub async fn assign_chain(
+        &self,
+        wallet: &mut PersistentWallet,
+        owner: JsValue,
+        chain_id: String,
+    ) -> Result<(), JsError> {
+        use linera_base::identifiers::{AccountOwner, ChainId};
+        use std::str::FromStr;
+
+        // Parse inputs
+        let account_owner: AccountOwner =
+            serde_wasm_bindgen::from_value(owner).map_err(|e| JsError::new(&format!("{:?}", e)))?;
+        let chain_id = ChainId::from_str(&chain_id)
+            .map_err(|e| JsError::new(&format!("Invalid ChainId: {:?}", e)))?;
+
+        // Acquire the client context to create a ChainClient for the target chain.
+        // `client_context` is an Arc<AsyncMutex<ClientContext>> stored on `Client`.
+        let context = self.client_context.lock().await;
+
+        // Create a chain client for the chain id and fetch its description.
+        let chain_client = context.make_chain_client(chain_id);
+        let chain_description = chain_client
+            .get_chain_description()
+            .await
+            .map_err(|e| JsError::new(&format!("Failed to fetch ChainDescription: {:?}", e)))?;
+
+        // Verify the owner is accepted by the chain ownership config.
+        let config = chain_description.config();
+        if !config.ownership.verify_owner(&account_owner) {
+            return Err(JsError::new(
+                "The chain ownership does not verify for the provided owner (check owner key)",
+            ));
+        }
+
+        // Persist assignment to the wallet: timestamp and epoch are taken from description.
+        let timestamp = chain_description.timestamp();
+        wallet
+            .wallet
+            .mutate(|w| w.assign_new_chain_to_owner(account_owner, chain_id, timestamp))
+            .await
+            .map_err(|e| JsError::new(&format!("Persistence error: {:?}", e)))?
+            .map_err(|e| JsError::new(&format!("Assign error: {:?}", e)))?;
+
+        Ok(())
+    }
     /// Sets a callback to be called when a notification is received
     /// from the network.
     ///

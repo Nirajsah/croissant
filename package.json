@@ -4,17 +4,16 @@
   "type": "module",
   "private": true,
   "workspaces": [
-    "client",
-    "signer",
+    "wasm-client",
     "web"
   ],
   "scripts": {
-    "dev": "bun run --cwd web dev",
-    "build": "bun run --cwd client build && bun run --cwd web build",
-    "build:client": "bun run --cwd client build",
-    "build:web": "bun run --cwd web build",
+    "dev": "pnpm run --parallel dev",
+    "build": "pnpm --filter wasm-client run build && pnpm --filter web run build:extension",
+    "build:wasm-client": "pnpm --filter wasm-client run build",
+    "build:web": "pnpm --filter web run build:extension",
     "lint": "eslint .",
-    "preview": "bun run --cwd web preview"
+    "preview": "pnpm run web preview"
   },
   "dependencies": {
     "lucide-react": "^0.488.0"

@@ -1,9 +1,8 @@
-use indexed_db_futures::prelude::*;
-use indexed_db_futures::transaction::TransactionMode;
-use indexed_db_futures::{
-    database::{Database, VersionChangeEvent},
-    Build,
-};
+use std::clone;
+
+use async_trait::async_trait;
+use futures::{future::try_join_all, TryFutureExt};
+use rexie::Rexie;
 use wasm_bindgen::{prelude::wasm_bindgen, JsError, JsValue};
 
 // /// UserData will be sent to the wallet client
@@ -153,19 +152,19 @@ fn _decrypt_wallet(_wallet_hash: &str, _key: &str) -> Result<String, JsError> {
 //     }
 // }
 
-/// Prefix used to namespace all keys stored by the Secret Vault within IndexedDB
-const VAULT_PREFIX: &str = "vault:";
-
-fn vault_key(field: &str) -> String {
-    format!("{}{}", VAULT_PREFIX, field)
-}
-
 /**
  * Secret Vault API (built on IndexedDB helpers above)
  *
  * These helpers namespace keys and reuse `persistent_wallet` to store and retrieve
  * arbitrary `JsValue`s that represent secrets or sensitive data.
  */
+
+/// Prefix used to namespace all keys stored by the Secret Vault within IndexedDB
+const VAULT_PREFIX: &str = "vault:";
+
+fn vault_key(field: &str) -> String {
+    format!("{}{}", VAULT_PREFIX, field)
+}
 
 #[wasm_bindgen(js_name = "Secret")]
 pub struct SecretVault;
@@ -199,8 +198,8 @@ impl SecretVault {
     }
 }
 
-// Storage trait with WASM-compatible async methods (no Send bound)
-// #[async_trait(?Send)]
+/* // Storage trait with WASM-compatible async methods (no Send bound)
+#[async_trait(?Send)]
 pub trait WalletStorage {
     /// Read a field from storage by key
     async fn read_field(&self, key: &str) -> Result<Option<JsValue>, JsError>;
@@ -212,7 +211,6 @@ pub trait WalletStorage {
     async fn write_fields(&self, fields: Vec<(String, JsValue)>) -> Result<(), JsError>;
 }
 
-// Implementation for IndexedDB
 pub struct IndexedDbStorage {
     db_name: String,
     store_name: String,
@@ -228,97 +226,173 @@ impl IndexedDbStorage {
         }
     }
 
-    async fn get_db(&self) -> Result<Database, JsValue> {
-        let store_name = self.store_name.clone();
-
-        Database::open(&self.db_name)
-            .with_version(self.version)
-            .with_on_upgrade_needed(move |evt: VersionChangeEvent, db: Database| {
-                let old_version = evt.old_version() as u32;
-
-                // Only create store if upgrading from version 0
-                if old_version == 0 {
-                    db.create_object_store(&store_name).build().map_err(|e| {
-                        JsValue::from_str(&format!("Failed to create object store: {:?}", e))
-                    })?;
-                }
-
+    async fn get_db(&self) -> Result<Rexie, RexieError> {
+        let db = Rexie::builder(&self.db_name)
+            .version(self.version, |db, _old_ver| {
+                db.create_object_store(&ObjectStoreBuilder::new(&self.store_name))?;
                 Ok(())
             })
-            .await
-            .map_err(|e| JsValue::from_str(&format!("Failed to open database: {:?}", e)))
+            .await?;
+        Ok(db)
     }
 }
 
-// #[async_trait(?Send)]
+#[async_trait(?Send)]
 impl WalletStorage for IndexedDbStorage {
     async fn read_field(&self, key: &str) -> Result<Option<JsValue>, JsError> {
-        let db = self
-            .get_db()
+        let db = self.get_db().await.map_err(js_err)?;
+        let tx = db.transaction(&[&self.store_name]).await.map_err(js_err)?;
+        let store = tx.store(&self.store_name).map_err(js_err)?;
+        let result = store.get(&JsValue::from_str(key)).await.map_err(js_err)?;
+        tx.done().await.map_err(js_err)?;
+        Ok(result)
+    }
+
+    async fn write_field(&self, key: &str, value: JsValue) -> Result<(), JsError> {
+        let db = self.get_db().await.map_err(js_err)?;
+        let tx = db.transaction(&[&self.store_name]).await.map_err(js_err)?;
+        let store = tx.store(&self.store_name).map_err(js_err)?;
+        store
+            .put(&value, Some(&JsValue::from_str(key)))
             .await
-            .map_err(|e| JsError::new(&format!("Failed to open DB: {:?}", e)))?;
+            .map_err(js_err)?;
+        tx.done().await.map_err(js_err)?;
+        Ok(())
+    }
+
+    async fn write_fields(&self, fields: Vec<(String, JsValue)>) -> Result<(), JsError> {
+        let db = self.get_db().await.map_err(js_err)?;
+        let tx = db.transaction(&[&self.store_name]).await.map_err(js_err)?;
+        let store = tx.store(&self.store_name).map_err(js_err)?;
+        for (key, value) in fields {
+            store
+                .put(&value, Some(&JsValue::from_str(&key)))
+                .await
+                .map_err(js_err)?;
+        }
+        tx.done().await.map_err(js_err)?;
+        Ok(())
+    }
+}
+
+// Helper to convert RexieError into your JsError
+fn js_err(err: RexieError) -> JsError {
+    JsError::new(&format!("IndexedDB error: {:?}", err))
+} */
+
+use rexie::{ObjectStore, TransactionMode};
+use wasm_bindgen_futures::JsFuture;
+
+#[async_trait(?Send)]
+pub trait WalletStorage {
+    async fn read_field(&self, key: &str) -> Result<Option<JsValue>, JsError>;
+    async fn write_field(&self, key: &str, value: JsValue) -> Result<(), JsError>;
+    async fn write_fields(&self, fields: Vec<(String, JsValue)>) -> Result<(), JsError>;
+}
+
+pub struct IndexedDbStorage {
+    db_name: String,
+    store_name: String,
+    version: u32,
+}
+
+impl IndexedDbStorage {
+    pub fn new(db_name: impl Into<String>, store_name: impl Into<String>, version: u32) -> Self {
+        Self {
+            db_name: db_name.into(),
+            store_name: store_name.into(),
+            version,
+        }
+    }
+
+    async fn get_db(&self) -> Result<Rexie, JsError> {
+        let db = Rexie::builder(&self.db_name)
+            .version(self.version)
+            .add_object_store(ObjectStore::new(&self.store_name))
+            .build()
+            .await
+            .map_err(|e| JsError::new(&format!("Failed to open IndexedDB: {:?}", e)))?;
+        Ok(db)
+    }
+}
+
+#[async_trait(?Send)]
+impl WalletStorage for IndexedDbStorage {
+    async fn read_field(&self, key: &str) -> Result<Option<JsValue>, JsError> {
+        let db = self.get_db().await?;
 
         let tx = db
-            .transaction(&self.store_name)
-            .build()
-            .map_err(|e| JsError::new(&format!("Failed to create transaction: {:?}", e)))?;
-
+            .transaction(&[&self.store_name], TransactionMode::ReadOnly)
+            .map_err(|e| JsError::new(&format!("Failed to start transaction: {:?}", e)))?;
         let store = tx
-            .object_store(&self.store_name)
-            .map_err(|e| JsError::new(&format!("Failed to get store: {:?}", e)))?;
+            .store(&self.store_name)
+            .map_err(|e| JsError::new(&format!("Failed to open store: {:?}", e)))?;
 
-        let result: Option<JsValue> = store
-            .get(&JsValue::from_str(key))
-            .primitive()
-            .map_err(|e| JsError::new(&format!("Failed to build get request: {:?}", e)))?
+        let result = store
+            .get(JsValue::from_str(key))
             .await
-            .map_err(|e| JsError::new(&format!("Failed to read field '{}': {:?}", key, e)))?;
+            .map_err(|e| JsError::new(&format!("Failed to read '{}': {:?}", key, e)))?;
+
+        // Wait for transaction to complete
+        tx.done()
+            .await
+            .map_err(|e| JsError::new(&format!("Transaction failed: {:?}", e)))?;
 
         Ok(result)
     }
 
     async fn write_field(&self, key: &str, value: JsValue) -> Result<(), JsError> {
-        let db = self
-            .get_db()
-            .await
-            .map_err(|e| JsError::new(&format!("Failed to open DB: {:?}", e)))?;
+        let db = self.get_db().await?;
 
+        tracing::info!("getting db: {:?}", db);
         let tx = db
-            .transaction(&self.store_name)
-            .with_mode(TransactionMode::Readwrite)
-            .build()
-            .map_err(|e| JsError::new(&format!("Failed to create transaction: {:?}", e)))?;
-
+            .transaction(&[&self.store_name], TransactionMode::ReadWrite)
+            .map_err(|e| JsError::new(&format!("Failed to start transaction: {:?}", e)))?;
         let store = tx
-            .object_store(&self.store_name)
-            .map_err(|e| JsError::new(&format!("Failed to get store: {:?}", e)))?;
+            .store(&self.store_name)
+            .map_err(|e| JsError::new(&format!("Failed to open store: {:?}", e)))?;
 
-        let _ = store.put(&value).with_key(&JsValue::from_str(key));
+        store
+            .put(&value, Some(&JsValue::from_str(key)))
+            .await
+            .map_err(|e| JsError::new(&format!("Failed to put '{}': {:?}", key, e)))?;
+
+        tx.done()
+            .await
+            .map_err(|e| JsError::new(&format!("Transaction commit failed: {:?}", e)))?;
 
         Ok(())
     }
 
     async fn write_fields(&self, fields: Vec<(String, JsValue)>) -> Result<(), JsError> {
-        let db = self
-            .get_db()
-            .await
-            .map_err(|e| JsError::new(&format!("Failed to open DB: {:?}", e)))?;
+        let db = self.get_db().await?;
+
+        tracing::info!("getting db: {:?}", db);
 
         let tx = db
-            .transaction(&self.store_name)
-            .with_mode(TransactionMode::Readwrite)
-            .build()
-            .map_err(|e| JsError::new(&format!("Failed to create transaction: {:?}", e)))?;
-
+            .transaction(&[&self.store_name], TransactionMode::ReadWrite)
+            .map_err(|e| JsError::new(&format!("Failed to start transaction: {:?}", e)))?;
         let store = tx
-            .object_store(&self.store_name)
-            .map_err(|e| JsError::new(&format!("Failed to get store: {:?}", e)))?;
+            .store(&self.store_name)
+            .map_err(|e| JsError::new(&format!("Failed to open store: {:?}", e)))?;
 
-        // Queue all writes
-        for (key, value) in fields {
-            let _req = store.put(value).with_key(JsValue::from_str(&key));
-        }
+        // Convert your Vec<(String, JsValue)> into an iterator of (JsValue, Option<JsValue>)
+        let iter = fields.into_iter().map(|(key, value)| {
+            let key_js = JsValue::from_str(&key);
+            (value, Some(key_js))
+        });
+
+        // Use Rexie’s built-in `put_all`
+        store
+            .put_all(iter)
+            .await
+            .map_err(|e| JsError::new(&format!("Failed to write fields: {:?}", e)))?;
+
+        tx.done()
+            .await
+            .map_err(|e| JsError::new(&format!("Transaction commit failed: {:?}", e)))?;
 
         Ok(())
     }
 }
+
