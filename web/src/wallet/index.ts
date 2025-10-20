@@ -61,12 +61,9 @@ export class Server {
     if (!this.initialized || !this.wasmInstance) {
       await this.init()
     }
-
     try {
-      // TODO(GetWallet function not implement in client)
       const wallet = await this.wasmInstance!.Wallet.readJsWallet()
-      const walletStr = wallet?.toString()
-      return { success: true, data: walletStr || 'No wallet data' }
+      return { success: true, data: wallet || 'No wallet data' }
     } catch (error) {
       console.error(error)
       return { success: false, error: `${error}` }
@@ -103,27 +100,17 @@ export class Server {
    */
   faucetHandlers: Record<OpType, FaucetHandler> = {
     CREATE_WALLET: async (faucet) => {
-      console.log('final test this create wallet fails', faucet)
       const wallet = await faucet.createWallet()
       this.wallet = wallet
-      console.log(wallet)
 
-      const vault = new this.wasmInstance!.Secret();
+      const vault = new this.wasmInstance!.Secret()
       const mnemonic = PrivateKeySigner.mnemonic() // this needs to be shown to the user.
-      vault.set("mn", mnemonic)
-      console.log(vault)
-
+      vault.set('mn', mnemonic)
       const signer = PrivateKeySigner.fromMnemonic(mnemonic)
-
       this.signer = signer
+      let chainId = await faucet.claimChain(wallet, signer.address())
 
-      console.log(signer)
-
-      await faucet.claimChain(wallet, signer.address())
-
-      console.log('got to success')
-
-      return { success: true, data: 'bgib' }
+      return { success: true, data: chainId }
     },
     CLAIM_CHAIN: async (faucet) => {
       await this._ensureClientAndWallet()
@@ -147,7 +134,6 @@ export class Server {
     if (!handler) return { success: false, error: 'Invalid operation' }
     try {
       const result = await handler.call(this, faucet)
-      console.log(result, 'possibly returning result of create chain')
       return result
     } catch (err) {
       return { success: false, error: `${err}` }

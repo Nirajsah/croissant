@@ -128,26 +128,16 @@ impl JsFaucet {
     /// If we couldn't retrieve the genesis config from the faucet.
     #[wasm_bindgen(js_name = createWallet)]
     pub async fn create_wallet(&self) -> JsResult<PersistentWallet> {
-        tracing::info!("requesting create chain");
-
         let storage = IndexedDbStorage::new("linera", "ldb", 2u32);
-
         let wallet = persistent::Memory::new(linera_client::wallet::Wallet::new(
             self.0.genesis_config().await?,
         ));
 
-        tracing::info!("wallet created ✅");
-
         let p = PersistentWallet::new(wallet, storage);
-        tracing::info!("persistent wallet created ✅");
-
-        tracing::info!("calling save_to_storage...");
         p.save_to_storage(true).await.map_err(|e| {
             tracing::error!("save_to_storage failed: {:?}", e);
             e
         })?;
-        tracing::info!("save_to_storage completed ✅");
-
         Ok(p)
     }
 
@@ -169,11 +159,6 @@ impl JsFaucet {
     ) -> JsResult<String> {
         use persistent::PersistExt as _;
         let account_owner: AccountOwner = serde_wasm_bindgen::from_value(owner)?;
-        tracing::info!(
-            "requesting a new chain for owner {} using the faucet at address {}",
-            account_owner,
-            self.0.url(),
-        );
         let description = self.0.claim(&account_owner).await?;
         wallet
             .wallet
@@ -225,22 +210,17 @@ impl PersistentWallet {
             None => serde_json::json!({}),
         };
 
-        let default_val: Option<String> = match default {
-            Some(jsv) => jsv.as_string(),
-            None => None,
+        let default_val: serde_json::Value = match default {
+            Some(jsv) => serde_wasm_bindgen::from_value(jsv)
+                .map_err(|e| JsError::new(&format!("Failed to deserialize chains: {}", e)))?,
+            None => serde_json::json!({}),
         };
 
         // Create combined object
-        let combined = if let Some(default_str) = default_val {
-            serde_json::json!({
-                "chains": chains_val,
-                "default": default_str,
-            })
-        } else {
-            serde_json::json!({
-                "chains": chains_val
-            })
-        };
+        let combined = serde_json::json!({
+            "chains": chains_val,
+            "default": default_val,
+        });
 
         // Serialize combined object to a JSON string
         let combined_str = serde_json::to_string(&combined)
@@ -265,52 +245,28 @@ impl PersistentWallet {
     }
 
     pub async fn save_to_storage(&self, gn_flag: bool) -> Result<(), JsError> {
-        tracing::info!("called to save to storage");
-
-        tracing::info!("serializing chains...");
         let chains_value = serde_wasm_bindgen::to_value(&self.wallet.chains)
             .map_err(|e| JsError::new(&format!("Failed to serialize chains: {}", e)))?;
-        tracing::info!("chains serialized ✅");
-
-        tracing::info!("serializing default...");
         let default_value = serde_wasm_bindgen::to_value(&self.wallet.default)
             .map_err(|e| JsError::new(&format!("Failed to serialize default: {}", e)))?;
-        tracing::info!("default serialized ✅");
-
         let mut fields = vec![
             ("chains".to_string(), chains_value),
             ("default".to_string(), default_value),
         ];
 
-        /* if gn_flag {
-            tracing::info!("serializing genesis...");
-            let genesis_value = serde_wasm_bindgen::to_value(&self.wallet.genesis_config())
-                .map_err(|e| JsError::new(&format!("Failed to serialize genesis: {}", e)))?;
-            tracing::info!("genesis serialized ✅");
-            fields.push(("genesis".to_string(), genesis_value));
-        } */
-
         if gn_flag {
             tracing::info!("serializing genesis to JSON string...");
             let genesis_json = serde_json::to_string(self.wallet.genesis_config())
                 .map_err(|e| JsError::new(&format!("Failed to serialize genesis: {}", e)))?;
-            tracing::info!("genesis serialized as JSON ✅");
-
-            // Store as a string in IndexedDB
             fields.push(("genesis".to_string(), JsValue::from_str(&genesis_json)));
         }
-
-        tracing::info!("about to call write_fields with {} fields", fields.len());
-
         let result = self.storage.write_fields(fields).await;
-        tracing::info!("write_fields returned: {:?}", result);
         result
     }
 }
 
 impl PersistentWallet {
     pub fn new(wallet: persistent::Memory<Wallet>, storage: IndexedDbStorage) -> Self {
-        tracing::info!("called to persist");
         Self { wallet, storage }
     }
 }
@@ -397,15 +353,9 @@ impl Client {
         Ok(Self { client_context })
     }
 
-    // Add this method inside `impl Client { ... }`
-
     /// Assigns a chain to the provided wallet key using only the ChainId (string).
-    ///
-    /// JS usage:
-    ///   // wallet is a PersistentWallet obtained from Faucet.createWallet()
-    ///   // owner is an AccountOwner value (e.g. string) or you can pass the signer's address
-    ///   await client.assignChain(wallet, owner, chainIdString);
-    #[wasm_bindgen(js_name = assignChain)]
+    /// `RESERVED` might need in the future
+    /* #[wasm_bindgen(js_name = assignChain)]
     pub async fn assign_chain(
         &self,
         wallet: &mut PersistentWallet,
@@ -450,7 +400,7 @@ impl Client {
             .map_err(|e| JsError::new(&format!("Assign error: {:?}", e)))?;
 
         Ok(())
-    }
+    } */
     /// Sets a callback to be called when a notification is received
     /// from the network.
     ///

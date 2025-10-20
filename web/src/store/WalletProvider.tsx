@@ -1,10 +1,10 @@
 import React, { createContext, useState, ReactNode, useContext } from 'react'
 import { walletApi } from '../wallet/walletApi'
-import { type UserChain } from '../walletTypes'
+import { Wallet } from '../walletTypes'
 
 interface WalletContextType {
-  wallet: UserChain | null
-  setWallet: React.Dispatch<React.SetStateAction<UserChain | null>>
+  wallet: Wallet | null
+  setWallet: React.Dispatch<React.SetStateAction<Wallet | null>>
   importWallet: (json: string) => Promise<boolean>
   isLoading: boolean
   setIsLoading: (loading: boolean) => void
@@ -15,7 +15,7 @@ interface WalletContextType {
 export const WalletContext = createContext<WalletContextType | null>(null)
 
 export default function WalletProvider({ children }: { children: ReactNode }) {
-  const [wallet, setWallet] = useState<UserChain | null>(null)
+  const [wallet, setWallet] = useState<Wallet | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
 

@@ -31,13 +31,13 @@ export default function HomePage() {
       }
       try {
         const walletData = await walletApi.getWallet()
-        console.log("Wallet should be here", walletData)
+        console.log('Wallet should be here', walletData)
 
         if (!walletData) {
           navigate('/set')
           return
         }
-        setWallet(Convert.toUserChain(walletData))
+        setWallet(Convert.toWallet(walletData))
         setIsLoading(false)
       } catch (error) {
         console.error(
