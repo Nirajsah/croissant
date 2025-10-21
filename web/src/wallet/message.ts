@@ -30,7 +30,7 @@ export type AssignRequest = {
   target: string
   type: 'ASSIGNMENT'
   chainId: string
-  timestamp: string
+  timestamp: number
 }
 
 export type TransactionConfirmationRequest = {

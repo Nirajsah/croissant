@@ -26,12 +26,16 @@ use std::{
     collections::{BTreeMap, HashMap},
     future::Future,
     panic,
+    str::FromStr,
     sync::Arc,
     time::Duration,
 };
 
 use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex, stream::StreamExt};
-use linera_base::identifiers::{AccountOwner, ApplicationId, ChainId};
+use linera_base::{
+    data_types::Timestamp,
+    identifiers::{AccountOwner, ApplicationId, ChainId},
+};
 use linera_client::{
     chain_listener::{ChainListener, ChainListenerConfig, ClientContext as _},
     client_options::ClientContextOptions,
@@ -313,6 +317,60 @@ impl PersistentWallet {
         }
         let result = self.storage.write_fields(fields).await;
         result
+    }
+
+    #[wasm_bindgen(js_name = assignChain)]
+    pub async fn assign_chain(
+        &mut self,
+        owner: JsValue,
+        chain_id: String,
+        timestamp: JsValue,
+    ) -> Result<(), JsError> {
+        use linera_base::identifiers::{AccountOwner, ChainId};
+        use std::str::FromStr;
+
+        // Parse inputs
+        let account_owner: AccountOwner =
+            serde_wasm_bindgen::from_value(owner).map_err(|e| JsError::new(&format!("{:?}", e)))?;
+        let chain_id = ChainId::from_str(&chain_id)
+            .map_err(|e| JsError::new(&format!("Invalid ChainId: {:?}", e)))?;
+        let timestamp: Timestamp = serde_wasm_bindgen::from_value(timestamp)
+            .map_err(|e| JsError::new(&format!("{:?}", e)))?;
+
+        // Persist assignment to the wallet: timestamp and epoch are taken from description.
+        self.wallet
+            .mutate(|w| w.assign_new_chain_to_owner(account_owner, chain_id, timestamp))
+            .await
+            .map_err(|e| JsError::new(&format!("Persistence error: {:?}", e)))?
+            .map_err(|e| JsError::new(&format!("Assign error: {:?}", e)))?;
+
+        self.wallet
+            .mutate(|w| w.set_default_chain(chain_id))
+            .await
+            .map_err(|e| JsError::new(&format!("Persistence error: {:?}", e)))?
+            .map_err(|e| JsError::new(&format!("default chain update error: {:?}", e)))?;
+
+        self.save_to_storage(false)
+            .await
+            .expect("failed to save wallet after assign");
+
+        Ok(())
+    }
+
+    /// Use to update default chain with new chain
+    pub async fn set_default_chain(&mut self, chain_id: String) -> JsResult<()> {
+        let chain_id = ChainId::from_str(&chain_id).unwrap();
+        self.wallet
+            .mutate(|w| w.set_default_chain(chain_id))
+            .await
+            .map_err(|e| JsError::new(&format!("Persistence error: {:?}", e)))?
+            .map_err(|e| JsError::new(&format!("Assign error: {:?}", e)))?;
+
+        self.save_to_storage(false)
+            .await
+            .expect("failed to set default chain");
+
+        Ok(())
     }
 }
 

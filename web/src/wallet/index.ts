@@ -173,6 +173,10 @@ export class Server {
             },
           })
         }
+
+        const portName = port.name
+        const messageType = message.type
+
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
           port.postMessage({
@@ -222,15 +226,14 @@ export class Server {
             async (message) =>
               this._handleQueryApplicationRequest(message, wrap),
           ],
-          ASSIGN: [
+          ASSIGNMENT: [
             guard.isAssignmentRequest,
             async (message) => await this._handleAssignment(message, wrap),
           ],
         }
 
-        if (port.name === 'extension') {
-          console.log('new message received for', port)
-          const handlerTuple = extensionHandlers[message.type]
+        if (portName === 'extension') {
+          const handlerTuple = extensionHandlers[messageType]
           if (handlerTuple && handlerTuple[0](message)) {
             await handlerTuple[1](message)
           } else if (message.type === 'PING') {
@@ -238,8 +241,8 @@ export class Server {
           }
         }
 
-        if (port.name === 'applications') {
-          const handlerTuple = applicationHandlers[message.type]
+        if (portName === 'applications') {
+          const handlerTuple = applicationHandlers[messageType]
           if (handlerTuple && handlerTuple[0](message)) {
             await handlerTuple[1](message)
           }
@@ -301,16 +304,22 @@ export class Server {
     message: any,
     wrap: (data: any, success?: boolean) => void
   ) {
-    await this._ensureClientAndWallet()
+    const wallet = await this.wasmInstance!.Wallet.get()
+    const mn = await new this.wasmInstance!.Secret().get('mn')
+    const signer = PrivateKeySigner.fromMnemonic(mn)
 
-    if (!this.client) {
-      wrap('Client Error', false)
-      return
-    }
+    if (!wallet || !signer) return wrap('Client Error', false)
+
+    this.signer = signer
+    this.wallet = wallet
 
     try {
-      // Need to implement assignment logic here
-      wrap(`Chain ${message.chainId} assigned at ${message.timestamp}`) // Placeholder response
+      await this.wallet.assignChain(
+        this.signer?.address(),
+        message.chainId,
+        message.timestamp
+      )
+      wrap('Assigned') // Does'nt respond anything
     } catch (err) {
       wrap(err, false)
     }

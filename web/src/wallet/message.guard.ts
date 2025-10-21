@@ -75,7 +75,7 @@ export function isAssignmentRequest(obj: unknown): obj is AssignRequest {
     typeof typedObj['target'] === 'string' &&
     typedObj['type'] === 'ASSIGNMENT' &&
     typeof typedObj['chainId'] === 'string' &&
-    typeof typedObj['timestamp'] === 'string'
+    typeof typedObj['timestamp'] === 'number'
   )
 }
 
