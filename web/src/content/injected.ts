@@ -1,5 +1,5 @@
 ;(function () {
-  type WalletRequest = QueryApplicationRequest | MutationApplicationRequest
+  type WalletRequest = QueryApplicationRequest | AssignmentRequest
 
   interface QueryApplicationRequest {
     type: 'QUERY'
@@ -7,10 +7,10 @@
     query: string
   }
 
-  interface MutationApplicationRequest {
-    type: 'MUTATION'
-    applicationId: string
-    mutation: string
+  interface AssignmentRequest {
+    type: 'ASSIGNMENT'
+    chainId: string
+    timestamp: string
   }
 
   interface WalletResponse {
@@ -24,14 +24,12 @@
   class LineraProvider {
     request(request: WalletRequest): Promise<WalletResponse> {
       console.log('[INJECTED] Request:', request)
+      // `TODO` Should validate request here
       return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(2)
 
         const responseHandler = (event: CustomEvent<WalletResponse>) => {
           if (event.detail.id !== id) return
-
-          console.log('[INJECTED] Got response:', event.detail)
-
           window.removeEventListener(
             'linera-wallet-response',
             responseHandler as EventListener

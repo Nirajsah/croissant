@@ -7,13 +7,9 @@
     "default_title": "Croissant",
     "default_popup": "src/popup/index.html"
   },
-  "cross_origin_embedder_policy": {
-    "value": "require-corp"
-  },
-  "cross_origin_opener_policy": {
-    "value": "same-origin"
-  },
   "permissions": [
+    "windows",
+    "tabs",
     "offscreen",
     "storage",
     "unlimitedStorage",
@@ -36,7 +32,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["*.js", "assets/*.js", "assets/*.wasm"],
+      "resources": ["*.js", "assets/*.js", "assets/*.wasm", "src/approval/*"],
       "matches": ["<all_urls>"]
     }
   ],

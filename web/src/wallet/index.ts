@@ -16,7 +16,6 @@ export class Server {
 
   private client: Client | null = null
   private wallet: Wallet | null = null
-  private js_wallet: any | null = null
   private signer: PrivateKeySigner | null = null
   constructor() {}
 
@@ -49,7 +48,6 @@ export class Server {
     try {
       // const wallet = await this.wasmInstance!.Wallet.setJsWallet(_wallet)
       // this.wallet = {}
-      this.js_wallet = _wallet
       return { success: true, data: 'Wallet set successfully' }
     } catch (error) {
       console.error(error)
@@ -73,17 +71,23 @@ export class Server {
   // Need to get mnemonic from secret and use to create the Signer
   private async _initClient() {
     if (this.wallet) {
-      // const mn = await new this.wasmInstance!.Secret().get('mn')
-      // const signer = PrivateKeySigner.fromMnemonic(mn);
-      // this.signer = signer
-      // this.client = new wasm.Client(this.wallet, signer, false);
+      const mn = await new this.wasmInstance!.Secret().get('mn')
+      const signer = PrivateKeySigner.fromMnemonic(mn)
+      this.signer = signer
+      this.client = await new wasm.Client(this.wallet, signer, false)
     }
   }
 
   private async _ensureClientAndWallet() {
     // TODO(Initialise the wallet if not present)
-    if (!this.wallet) {
-      return { success: false, error: 'wallet not set' }
+    if (!this.wallet && !this.client) {
+      let wallet = await this.wasmInstance!.Wallet.get()
+      if (!wallet) {
+        return { success: false, error: 'No wallet found' }
+      }
+      this.wallet = wallet
+      await this._initClient()
+      this.wallet = wallet
     }
     if (!this.client && this.wallet) {
       await this._initClient()
@@ -127,7 +131,6 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   private async faucetAction(op: OpType): Promise<Result<string>> {
-    console.log('called to createWallet')
     const FAUCET_URL = 'http://localhost:8079'
     const faucet = new wasm.Faucet(FAUCET_URL)
     const handler = this.faucetHandlers[op]
@@ -155,11 +158,21 @@ export class Server {
       if (port.name !== 'applications' && port.name !== 'extension') {
         return
       }
+
       this.subscribers.add(port)
 
       port.onMessage.addListener(async (message) => {
         if (message.target !== 'wallet') return false
-
+        if (message.type === 'CONNECT_WALLET') {
+          chrome.runtime.sendMessage({
+            type: 'OPEN_APPROVAL_POPUP',
+            requestId: 'test123',
+            payload: {
+              type: 'CONNECT_WALLET',
+              origin: 'https://example-dapp.com',
+            },
+          })
+        }
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
           port.postMessage({
@@ -204,25 +217,14 @@ export class Server {
         }
 
         const applicationHandlers: Record<string, MessageHandler> = {
-          QUERY_APPLICATION: [
+          QUERY: [
             guard.isQueryApplicationRequest,
             async (message) =>
               this._handleQueryApplicationRequest(message, wrap),
           ],
-          TEMP_CHAIN: [
-            guard.isTempChainRequest,
-            async (message) => this._handleTempChain(message, wrap),
-          ],
-          // Will be removed
-          MUTATION: [
-            guard.isMutationApplicationRequest,
-            async (message) =>
-              this._handleMutationApplicationRequest(message, wrap),
-          ],
-          TRANSACTION_CONFIRMATION: [
-            guard.isTransactionConfirmationRequest,
-            async (message) =>
-              this._handleTransactionConfirmationRequest(message, wrap),
+          ASSIGN: [
+            guard.isAssignmentRequest,
+            async (message) => await this._handleAssignment(message, wrap),
           ],
         }
 
@@ -295,7 +297,7 @@ export class Server {
     wrap(result.success ? result.data : result.error, result.success)
   }
 
-  private async _handleTempChain(
+  private async _handleAssignment(
     message: any,
     wrap: (data: any, success?: boolean) => void
   ) {
@@ -305,15 +307,10 @@ export class Server {
       wrap('Client Error', false)
       return
     }
-    // Need to put this inside the query
-    // const owner = this.signer?.address()
 
     try {
-      const app = await this.client
-        .frontend()
-        .application(message.applicationId)
-      const result = await app.query(message.query)
-      wrap(result)
+      // Need to implement assignment logic here
+      wrap(`Chain ${message.chainId} assigned at ${message.timestamp}`) // Placeholder response
     } catch (err) {
       wrap(err, false)
     }
@@ -334,67 +331,12 @@ export class Server {
       const app = await this.client
         .frontend()
         .application(message.applicationId)
+
       const result = await app.query(message.query)
       wrap(result)
     } catch (err) {
       wrap(err, false)
     }
-  }
-
-  private async _handleMutationApplicationRequest(
-    message: any,
-    wrap: (data: any, success?: boolean) => void
-  ) {
-    await this._ensureClientAndWallet()
-
-    if (!this.client) {
-      wrap('Client Error', false)
-      return
-    }
-
-    try {
-      // Request transaction confirmation from user
-      const requestId = Math.random().toString(36).slice(2)
-      const transactionData = {
-        from: this.js_wallet?.chains[0]?.owner || 'Unknown',
-        to: message.applicationId,
-        amount: 'Unknown', // This would need to be extracted from the mutation
-        type: 'MUTATION',
-        applicationId: message.applicationId,
-        mutation: message.mutation,
-      }
-
-      // Send confirmation request to background script
-      const confirmationResponse = await chrome.runtime.sendMessage({
-        type: 'TRANSACTION_CONFIRMATION_REQUEST',
-        requestId: requestId,
-        transactionData: transactionData,
-      })
-
-      if (!confirmationResponse.approved) {
-        wrap('Transaction rejected by user', false)
-        return
-      }
-
-      // Execute the mutation after confirmation
-      const app = await this.client!.frontend().application(
-        message.applicationId
-      )
-      // Note: The actual mutation method may need to be implemented based on the Linera client API
-      const result = await (app as any).mutation(message.mutation)
-      wrap(result)
-    } catch (err) {
-      wrap(err, false)
-    }
-  }
-
-  private async _handleTransactionConfirmationRequest(
-    _message: any,
-    wrap: (data: any, success?: boolean) => void
-  ) {
-    // This handler is mainly for completeness - the actual confirmation
-    // is handled by the background script and popup
-    wrap('Transaction confirmation handled by popup', true)
   }
 
   public static async run() {

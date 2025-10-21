@@ -26,11 +26,11 @@ export type QueryApplicationRequest = {
   query: string
 }
 
-export type MutationApplicationRequest = {
+export type AssignRequest = {
   target: string
-  type: 'MUTATION'
-  applicationId: string
-  mutation: string
+  type: 'ASSIGNMENT'
+  chainId: string
+  timestamp: string
 }
 
 export type TransactionConfirmationRequest = {

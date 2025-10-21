@@ -6,10 +6,10 @@ import {
   GetWalletRequest,
   SetWalletRequest,
   QueryApplicationRequest,
-  MutationApplicationRequest,
   CreateWalletRequest,
   CreateChainRequest,
   TransactionConfirmationRequest,
+  AssignRequest,
 } from './message'
 
 export function isGetWalletRequest(obj: unknown): obj is GetWalletRequest {
@@ -67,30 +67,15 @@ export function isQueryApplicationRequest(
   )
 }
 
-export function isTempChainRequest(
-  obj: unknown
-): obj is QueryApplicationRequest {
-  const typedObj = obj as QueryApplicationRequest
+export function isAssignmentRequest(obj: unknown): obj is AssignRequest {
+  const typedObj = obj as AssignRequest
   return (
     ((typedObj !== null && typeof typedObj === 'object') ||
       typeof typedObj === 'function') &&
     typeof typedObj['target'] === 'string' &&
-    typedObj['type'] === 'QUERY' &&
-    typeof typedObj['applicationId'] === 'string' &&
-    typeof typedObj['query'] === 'string'
-  )
-}
-export function isMutationApplicationRequest(
-  obj: unknown
-): obj is MutationApplicationRequest {
-  const typedObj = obj as MutationApplicationRequest
-  return (
-    ((typedObj !== null && typeof typedObj === 'object') ||
-      typeof typedObj === 'function') &&
-    typeof typedObj['target'] === 'string' &&
-    typedObj['type'] === 'MUTATION' &&
-    typeof typedObj['applicationId'] === 'string' &&
-    typeof typedObj['mutation'] === 'string'
+    typedObj['type'] === 'ASSIGNMENT' &&
+    typeof typedObj['chainId'] === 'string' &&
+    typeof typedObj['timestamp'] === 'string'
   )
 }
 
