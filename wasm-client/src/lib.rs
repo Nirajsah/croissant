@@ -22,14 +22,21 @@ policies, including in-memory keys and signing using an existing MetaMask wallet
 pub mod signer;
 pub mod utils;
 
-use std::{collections::HashMap, future::Future, panic, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    future::Future,
+    panic,
+    sync::Arc,
+    time::Duration,
+};
 
 use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex, stream::StreamExt};
-use linera_base::identifiers::{AccountOwner, ApplicationId};
+use linera_base::identifiers::{AccountOwner, ApplicationId, ChainId};
 use linera_client::{
     chain_listener::{ChainListener, ChainListenerConfig, ClientContext as _},
     client_options::ClientContextOptions,
-    wallet::Wallet,
+    config::GenesisConfig,
+    wallet::{UserChain, Wallet},
 };
 use linera_core::{
     data_types::ClientOutcome,
@@ -186,15 +193,60 @@ impl PersistentWallet {
     #[wasm_bindgen(js_name = "get")]
     pub async fn get() -> Result<Option<PersistentWallet>, JsError> {
         let storage = IndexedDbStorage::new("linera", "ldb", 2u32);
-        let chains = storage.read_field("chains");
-        let default = storage.read_field("default");
-        let genesis = storage.read_field("genesis");
+        let chains_result = storage.read_field("chains").await;
+        let default_result = storage.read_field("default").await;
+        let genesis_result = storage.read_field("genesis").await;
 
-        /* let wallet: Wallet = serde_json::from_str(wallet_json)
-        .map_err(|e| JsError::new(&format!("Failed to deserialize wallet JSON: {e}")))?; */
+        // Check if wallet exists - if any core field is missing, return None
+        if chains_result.is_err() || genesis_result.is_err() {
+            return Ok(None);
+        }
 
-        todo!()
-        // Ok(Some(self))
+        let chains_val = chains_result.unwrap().unwrap();
+        let genesis_val = genesis_result.unwrap().unwrap();
+
+        // Chains: stored as JS Map - use serde_wasm_bindgen directly
+        let chains: BTreeMap<ChainId, UserChain> = serde_wasm_bindgen::from_value(chains_val)
+            .map_err(|e| JsError::new(&format!("Failed to deserialize chains: {e}")))?;
+
+        // Genesis: stored as JSON string - parse it first
+        let genesis_config: GenesisConfig = if let Some(json_str) = genesis_val.as_string() {
+            serde_json::from_str(&json_str)
+                .map_err(|e| JsError::new(&format!("Failed to deserialize genesis: {e}")))?
+        } else {
+            serde_wasm_bindgen::from_value(genesis_val)
+                .map_err(|e| JsError::new(&format!("Failed to deserialize genesis: {e}")))?
+        };
+
+        // Default: stored as plain string (chain ID) or null
+        let default: Option<ChainId> = if let Ok(Some(val)) = default_result {
+            if val.is_null() || val.is_undefined() {
+                None
+            } else if let Some(chain_id_str) = val.as_string() {
+                // Parse the string as ChainId directly
+                Some(
+                    serde_json::from_str(&format!("\"{}\"", chain_id_str))
+                        .map_err(|e| JsError::new(&format!("Failed to parse chain ID: {e}")))?,
+                )
+            } else {
+                // Try deserializing as object
+                serde_wasm_bindgen::from_value(val).ok()
+            }
+        } else {
+            None
+        };
+
+        // Construct the Wallet struct manually from individual fields
+        let mut wallet = Wallet::new(genesis_config);
+
+        wallet.chains = chains;
+        wallet.default = default;
+
+        let memory_wallet = persistent::Memory::new(wallet);
+
+        let p = PersistentWallet::new(memory_wallet, storage);
+
+        Ok(Some(p))
     }
 
     /// This methods returns the Wallet stored in string format, that could be parsed into json.
@@ -255,7 +307,6 @@ impl PersistentWallet {
         ];
 
         if gn_flag {
-            tracing::info!("serializing genesis to JSON string...");
             let genesis_json = serde_json::to_string(self.wallet.genesis_config())
                 .map_err(|e| JsError::new(&format!("Failed to serialize genesis: {}", e)))?;
             fields.push(("genesis".to_string(), JsValue::from_str(&genesis_json)));
@@ -338,9 +389,8 @@ impl Client {
             tokio_util::sync::CancellationToken::new(),
         )
         .run(true) // Enable background sync
-        .boxed_local()
-        .await?
-        .boxed_local();
+        .await?;
+
         wasm_bindgen_futures::spawn_local(
             async move {
                 if let Err(error) = chain_listener.await {
