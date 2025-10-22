@@ -2,31 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+/* body {
   @apply bg-black;
-}
+} */
 * {
   @apply antialiased scroll-smooth;
-}
-
-#curved-corner-topright {
-  width: 54px;
-  height: 50px;
-  overflow: hidden;
-  position: relative;
-}
-#curved-corner-topright:before {
-  content: '';
-  display: block;
-  width: 200%;
-  height: 200%;
-  position: absolute;
-  border-radius: 50%;
-}
-#curved-corner-topright:before {
-  top: 0;
-  right: 0;
-  box-shadow: 50px -50px 0 0 red;
 }
 
 .no-scrollbar::-webkit-scrollbar {
