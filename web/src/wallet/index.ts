@@ -22,7 +22,7 @@ export class Server {
   private async setDefaultChain(chain_id: string): Promise<Result<string>> {
     await this._ensureClientAndWallet()
     try {
-      // this.wallet!.setDefaultChain(await this.client!, chain_id) // TODO!(also need to update the wallet, indexeddb)
+      this.wallet!.set_default_chain(chain_id)
       return { success: true, data: `Default chain set to ${chain_id}` }
     } catch (error) {
       console.error(error)
@@ -46,8 +46,8 @@ export class Server {
       await this.init()
     }
     try {
-      // const wallet = await this.wasmInstance!.Wallet.setJsWallet(_wallet)
-      // this.wallet = {}
+      const wallet = await this.wasmInstance!.Wallet.setJsWallet(_wallet)
+      this.wallet = wallet
       return { success: true, data: 'Wallet set successfully' }
     } catch (error) {
       console.error(error)
@@ -100,7 +100,7 @@ export class Server {
    * It returns the claimed chain_id
    *
    * 1. Wallet is requried to claim a chain.
-   * 2. Owner hash is required, will be used to claim the chain.
+   * 2. Owner hash(public key) is required, will be used to claim the chain.
    */
   faucetHandlers: Record<OpType, FaucetHandler> = {
     CREATE_WALLET: async (faucet) => {
@@ -111,6 +111,7 @@ export class Server {
       const mnemonic = PrivateKeySigner.mnemonic() // this needs to be shown to the user.
       vault.set('mn', mnemonic)
       const signer = PrivateKeySigner.fromMnemonic(mnemonic)
+      console.log(signer.address())
       this.signer = signer
       let chainId = await faucet.claimChain(wallet, signer.address())
 
@@ -154,6 +155,16 @@ export class Server {
       console.error('❌ WASM Initialization Failed:', error)
     }
 
+    this.client?.onNotification((notification: any) => {
+      // Broadcast to all connected subscribers
+      this.subscribers.forEach((port) => {
+        port.postMessage({
+          type: 'NOTIFICATION',
+          data: notification,
+        })
+      })
+    })
+
     chrome.runtime.onConnect.addListener((port) => {
       if (port.name !== 'applications' && port.name !== 'extension') {
         return
@@ -165,7 +176,7 @@ export class Server {
         if (message.target !== 'wallet') return false
         if (message.type === 'CONNECT_WALLET') {
           chrome.runtime.sendMessage({
-            type: 'OPEN_APPROVAL_POPUP',
+            type: 'CONNECT_WALLET',
             requestId: 'test123',
             payload: {
               type: 'CONNECT_WALLET',
@@ -233,6 +244,12 @@ export class Server {
         }
 
         if (portName === 'extension') {
+          if (message.type === 'CONFIRMATION') {
+            // Just forward the confirmation message to the wallet extension UI
+            console.log(message, 'Received confirmation message')
+            wrap('Confirmation received') // Acknowledge receipt
+            return
+          }
           const handlerTuple = extensionHandlers[messageType]
           if (handlerTuple && handlerTuple[0](message)) {
             await handlerTuple[1](message)

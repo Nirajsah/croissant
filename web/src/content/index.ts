@@ -40,6 +40,19 @@ function getWalletPort(): chrome.runtime.Port {
   }
 
   function attachListeners(port: chrome.runtime.Port) {
+    port.onMessage.addListener((message) => {
+      // Check if it's a notification (no requestId)
+      if (message.type === 'NOTIFICATION') {
+        // Forward notification to web page
+        window.dispatchEvent(
+          new CustomEvent('linera-wallet-notification', {
+            detail: message.data,
+          })
+        )
+        return
+      }
+    })
+    
     port.onDisconnect.addListener(() => {
       walletPort = null
       setTimeout(() => {

@@ -21,7 +21,26 @@
 
   if (window.linera) return // Prevent multiple injections
 
-  class LineraProvider {
+  class LineraProvider extends EventTarget {
+
+    constructor() {
+      super()
+      // Listen for notifications from content script
+      this._setupNotificationListener()
+    }
+
+    private _setupNotificationListener() {
+      window.addEventListener('linera-wallet-notification', (event: Event) => {
+        const customEvent = event as CustomEvent
+        // Dispatch to dApp listeners
+        this.dispatchEvent(
+          new CustomEvent('notification', {
+            detail: customEvent.detail,
+          })
+        )
+      })
+    }
+
     request(request: WalletRequest): Promise<WalletResponse> {
       console.log('[INJECTED] Request:', request)
       // `TODO` Should validate request here
@@ -51,6 +70,17 @@
         )
       })
     }
+
+    on(event: 'notification', callback: (data: any) => void) {
+      this.addEventListener(event, ((e: CustomEvent) => {
+        callback(e.detail)
+      }) as EventListener)
+    }
+
+    // Convenience method to unsubscribe
+    off(event: 'notification', callback: (data: any) => void) {
+      this.removeEventListener(event, callback as EventListener)
+    }    
   }
 
   window.linera = new LineraProvider()

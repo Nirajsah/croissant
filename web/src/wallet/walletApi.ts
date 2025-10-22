@@ -68,4 +68,9 @@ export const walletApi = {
   setDefaultChain(chain_id: string) {
     return this.sendMessage({ type: 'SET_DEFAULT_CHAIN', chain_id, target })
   },
+
+  // use to send confirmation messages to the wallet
+  sendConfirmation(message: any) {
+    return this.sendMessage({ type: 'CONFIRMATION', message, target })
+  },
 }
