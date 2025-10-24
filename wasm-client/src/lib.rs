@@ -25,6 +25,7 @@ pub mod utils;
 use std::{
     collections::{BTreeMap, HashMap},
     future::Future,
+    ops::Deref,
     panic,
     str::FromStr,
     sync::Arc,
@@ -47,7 +48,7 @@ use linera_core::{
     node::{ValidatorNode as _, ValidatorNodeProvider as _},
 };
 use linera_faucet_client::Faucet;
-use linera_persistent::{self as persistent, PersistExt};
+use linera_persistent::{self as persistent, Persist, PersistExt};
 use linera_views::store::WithError;
 use serde::ser::Serialize as _;
 use wasm_bindgen::prelude::*;
@@ -86,8 +87,79 @@ pub struct PersistentWallet {
     wallet: persistent::Memory<Wallet>,
     storage: IndexedDbStorage,
 }
-type ClientContext =
-    linera_client::client_context::ClientContext<WebEnvironment, persistent::Memory<Wallet>>;
+
+impl Deref for PersistentWallet {
+    type Target = Wallet;
+
+    fn deref(&self) -> &Self::Target {
+        &self.wallet
+    }
+}
+
+use std::error::Error as StdError;
+use std::fmt;
+
+#[derive(Debug)]
+pub struct WasmPersistError {
+    inner: String,
+}
+
+impl WasmPersistError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self { inner: msg.into() }
+    }
+}
+
+impl fmt::Display for WasmPersistError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl StdError for WasmPersistError {}
+
+// These are safe in single-threaded WASM
+unsafe impl Send for WasmPersistError {}
+unsafe impl Sync for WasmPersistError {}
+
+// Convert from JsError
+impl From<JsError> for WasmPersistError {
+    fn from(e: JsError) -> Self {
+        Self::new(format!("{:?}", e))
+    }
+}
+
+impl From<serde_json::Error> for WasmPersistError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::new(e.to_string())
+    }
+}
+
+// Implement Persist trait
+impl Persist for PersistentWallet {
+    type Error = WasmPersistError;
+
+    fn as_mut(&mut self) -> &mut Self::Target {
+        self.wallet.as_mut()
+    }
+
+    async fn persist(&mut self) -> Result<(), Self::Error> {
+        // Save to IndexedDB
+        self.save_to_storage(false)
+            .await
+            .map_err(|e| JsError::new(&format!("Failed to persist wallet: {:?}", e)))?;
+
+        Ok(())
+    }
+
+    fn into_value(self) -> Self::Target {
+        self.wallet.into_value()
+    }
+}
+
+type ClientContext = linera_client::client_context::ClientContext<WebEnvironment, PersistentWallet>;
+
+// linera_client::client_context::ClientContext<WebEnvironment, persistent::Memory<Wallet>>;
 type ChainClient = linera_core::client::ChainClient<WebEnvironment>;
 
 // TODO(#13): get from user
@@ -197,17 +269,22 @@ impl PersistentWallet {
     #[wasm_bindgen(js_name = "get")]
     pub async fn get() -> Result<Option<PersistentWallet>, JsError> {
         let storage = IndexedDbStorage::new("linera", "ldb", 2u32);
-        let chains_result = storage.read_field("chains").await;
-        let default_result = storage.read_field("default").await;
-        let genesis_result = storage.read_field("genesis").await;
+        let chains_result = storage.read_field("chains").await?;
+        let default_result = storage.read_field("default").await?;
+        let genesis_result = storage.read_field("genesis").await?;
 
-        // Check if wallet exists - if any core field is missing, return None
-        if chains_result.is_err() || genesis_result.is_err() {
-            return Ok(None);
-        }
-
-        let chains_val = chains_result.unwrap().unwrap();
-        let genesis_val = genesis_result.unwrap().unwrap();
+        let chains_val = match chains_result {
+            Some(val) => val,
+            None => return Ok(None),
+        };
+        let default_val = match default_result {
+            Some(ref val) => val,
+            None => return Ok(None),
+        };
+        let genesis_val = match genesis_result {
+            Some(val) => val,
+            None => return Ok(None),
+        };
 
         // Chains: stored as JS Map - use serde_wasm_bindgen directly
         let chains: BTreeMap<ChainId, UserChain> = serde_wasm_bindgen::from_value(chains_val)
@@ -223,7 +300,7 @@ impl PersistentWallet {
         };
 
         // Default: stored as plain string (chain ID) or null
-        let default: Option<ChainId> = if let Ok(Some(val)) = default_result {
+        let default: Option<ChainId> = if let Some(ref val) = default_result {
             if val.is_null() || val.is_undefined() {
                 None
             } else if let Some(chain_id_str) = val.as_string() {
@@ -234,7 +311,7 @@ impl PersistentWallet {
                 )
             } else {
                 // Try deserializing as object
-                serde_wasm_bindgen::from_value(val).ok()
+                serde_wasm_bindgen::from_value(val.clone()).ok()
             }
         } else {
             None
@@ -433,9 +510,21 @@ impl Client {
         let client_context = Arc::new(AsyncMutex::new(ClientContext::new(
             storage.clone(),
             OPTIONS,
-            wallet.wallet,
+            wallet,
             signer,
         )));
+
+        // CRITICAL: Synchronize all chains before starting listener
+        {
+            let mut guard = client_context.lock().await;
+            let chain_ids: Vec<_> = guard.wallet().chain_ids();
+            for chain_id in chain_ids {
+                let client = guard.make_chain_client(chain_id);
+                client.synchronize_from_validators().await?;
+                guard.update_wallet(&client).await?;
+            }
+        }
+
         let client_context_clone = client_context.clone();
         let chain_listener = ChainListener::new(
             ChainListenerConfig {
@@ -463,7 +552,7 @@ impl Client {
 
     /// Assigns a chain to the provided wallet key using only the ChainId (string).
     /// `RESERVED` might need in the future
-    /* #[wasm_bindgen(js_name = assignChain)]
+    #[wasm_bindgen(js_name = assignChain)]
     pub async fn assign_chain(
         &self,
         wallet: &mut PersistentWallet,
@@ -508,7 +597,7 @@ impl Client {
             .map_err(|e| JsError::new(&format!("Assign error: {:?}", e)))?;
 
         Ok(())
-    } */
+    }
     /// Sets a callback to be called when a notification is received
     /// from the network.
     ///
@@ -721,7 +810,6 @@ impl Application {
     // TODO(#14) allow passing bytes here rather than just strings
     // TODO(#15) a lot of this logic is shared with `linera_service::node_service`
     pub async fn query(&self, query: &str) -> JsResult<String> {
-        tracing::debug!("querying application: {query}");
         let chain_client = self.client.default_chain_client().await?;
 
         let linera_execution::QueryOutcome {
