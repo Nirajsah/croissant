@@ -58,24 +58,26 @@ export function isQueryApplicationRequest(
 ): obj is QueryApplicationRequest {
   const typedObj = obj as QueryApplicationRequest
   return (
-    ((typedObj !== null && typeof typedObj === 'object') ||
-      typeof typedObj === 'function') &&
-    typeof typedObj['target'] === 'string' &&
+    typedObj &&
+    typeof typedObj === 'object' &&
     typedObj['type'] === 'QUERY' &&
-    typeof typedObj['applicationId'] === 'string' &&
-    typeof typedObj['query'] === 'string'
+    typeof typedObj['target'] === 'string' &&
+    typedObj['message'] &&
+    typeof typedObj['message']['applicationId'] === 'string' &&
+    typeof typedObj['message']['query'] === 'string'
   )
 }
 
 export function isAssignmentRequest(obj: unknown): obj is AssignRequest {
   const typedObj = obj as AssignRequest
   return (
-    ((typedObj !== null && typeof typedObj === 'object') ||
-      typeof typedObj === 'function') &&
-    typeof typedObj['target'] === 'string' &&
+    typedObj &&
+    typeof typedObj === 'object' &&
     typedObj['type'] === 'ASSIGNMENT' &&
-    typeof typedObj['chainId'] === 'string' &&
-    typeof typedObj['timestamp'] === 'number'
+    typeof typedObj['target'] === 'string' &&
+    typedObj['message'] &&
+    typeof typedObj['message']['chainId'] === 'string' &&
+    typeof typedObj['message']['timestamp'] === 'number'
   )
 }
 

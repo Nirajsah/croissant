@@ -42,7 +42,6 @@
     }
 
     request(request: WalletRequest): Promise<WalletResponse> {
-      console.log('[INJECTED] Request:', request)
       // `TODO` Should validate request here
       return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(2)

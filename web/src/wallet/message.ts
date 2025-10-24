@@ -22,15 +22,21 @@ export type CreateChainRequest = {
 export type QueryApplicationRequest = {
   target: string
   type: 'QUERY'
-  applicationId: string
-  query: string
+  message: {
+    type: 'QUERY'
+    applicationId: string
+    query: string
+  }
+  requestId: string
 }
 
 export type AssignRequest = {
   target: string
   type: 'ASSIGNMENT'
-  chainId: string
-  timestamp: number
+  message: {
+    chainId: string
+    timestamp: number
+  }
 }
 
 export type TransactionConfirmationRequest = {

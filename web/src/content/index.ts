@@ -5,8 +5,6 @@ script.onload = function () {
 }
 ;(document.head || document.documentElement).appendChild(script)
 
-type RequestEvent = CustomEvent<{ id: string; message: any }>
-
 function respond(id: string, result: any) {
   window.dispatchEvent(
     new CustomEvent('linera-wallet-response', {
@@ -16,18 +14,35 @@ function respond(id: string, result: any) {
 }
 
 window.addEventListener('linera-wallet-request', async (event) => {
-  const e = event as RequestEvent
+  const customEvent = event as CustomEvent
+  const detail = customEvent.detail
+
+  if (!detail || !detail.message.type) return
 
   try {
+    const { id, message } = detail
+    const { type } = message
+
+    const payload =
+      type == 'CONNECT_WALLET' || type === 'ASSIGNMENT'
+        ? {
+            origin: window.location.origin,
+            href: window.location.href,
+            title: document.title || 'Unknown DApp',
+            favicon: getFavicon(),
+          }
+        : undefined
+
     const backgroundMsg = {
       target: 'wallet',
-      ...e.detail.message,
+      type,
+      ...(payload ? { payload } : {}),
+      ...(message ? { message } : {}),
     }
-
     const response = await sendMessage(backgroundMsg)
-    respond(e.detail.id, response)
-  } catch (_) {
-    console.log(e.detail.id)
+    respond(id, response)
+  } catch (e) {
+    console.log(detail.id, e)
   }
 })
 
@@ -52,7 +67,7 @@ function getWalletPort(): chrome.runtime.Port {
         return
       }
     })
-    
+
     port.onDisconnect.addListener(() => {
       walletPort = null
       setTimeout(() => {
@@ -77,6 +92,7 @@ function sendMessage<T = any>(msg: any): Promise<T> {
 
     function handleResponse(response: any) {
       if (response.requestId !== requestId) return
+
       port.onMessage.removeListener(handleResponse)
       if (response.success) {
         resolve(response.data)
@@ -88,4 +104,45 @@ function sendMessage<T = any>(msg: any): Promise<T> {
     port.onMessage.addListener(handleResponse)
     port.postMessage(msg)
   })
+}
+
+function getFavicon(): string {
+  const relSelectors = [
+    "link[rel~='icon']",
+    "link[rel='shortcut icon']",
+    "link[rel='apple-touch-icon']",
+    "link[rel='apple-touch-icon-precomposed']",
+  ]
+
+  for (const sel of relSelectors) {
+    const el = document.querySelector(sel)
+    if (!el) continue
+
+    // Cast to HTMLLinkElement if possible
+    const link = el as HTMLLinkElement | null
+    const rawHref = (link && link.href) || el.getAttribute('href')
+    if (rawHref) {
+      try {
+        return new URL(rawHref, location.href).href
+      } catch (err) {
+        // skip invalid URL
+      }
+    }
+  }
+
+  // Try Open Graph image
+  const og = document.querySelector(
+    "meta[property='og:image'], meta[name='og:image']"
+  ) as HTMLMetaElement | null
+  if (og) {
+    const ogUrl = og.content || og.getAttribute('content')
+    if (ogUrl) {
+      try {
+        return new URL(ogUrl, location.href).href
+      } catch (err) {}
+    }
+  }
+
+  // Fallback to origin /favicon.ico
+  return new URL('/favicon.ico', location.origin).href
 }

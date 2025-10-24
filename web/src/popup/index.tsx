@@ -50,7 +50,7 @@ if (rootElement) {
 
 // Example: navigate imperatively when a message is received
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.payload.type === 'CONNECT_WALLET' || msg.payload.type === 'ASSIGN') {
+  if (msg.type === 'OPEN_APPROVAL_POPUP') {
     router.navigate('/approve')
   }
 })

@@ -19,6 +19,47 @@ export class Server {
   private signer: PrivateKeySigner | null = null
   constructor() {}
 
+  private safePostMessage(port: chrome.runtime.Port, message: any): boolean {
+    try {
+      // Check if port is still connected
+      if (!port || port.name === undefined) {
+        this.subscribers.delete(port)
+        return false
+      }
+
+      port.postMessage(message)
+      return true
+    } catch (error) {
+      // Port is disconnected, remove from subscribers
+      console.warn('Failed to send message, removing disconnected port:', error)
+      this.subscribers.delete(port)
+      return false
+    }
+  }
+
+  // Helper to broadcast to all subscribers, removing dead ones
+  private broadcastToSubscribers(
+    message: any,
+    filter?: (port: chrome.runtime.Port) => boolean
+  ) {
+    const deadPorts: chrome.runtime.Port[] = []
+
+    this.subscribers.forEach((port) => {
+      // Apply filter if provided
+      if (filter && !filter(port)) {
+        return
+      }
+
+      // Try to send, track failures
+      if (!this.safePostMessage(port, message)) {
+        deadPorts.push(port)
+      }
+    })
+
+    // Clean up dead ports
+    deadPorts.forEach((port) => this.subscribers.delete(port))
+  }
+
   private async setDefaultChain(chain_id: string): Promise<Result<string>> {
     await this._ensureClientAndWallet()
     try {
@@ -75,6 +116,17 @@ export class Server {
       const signer = PrivateKeySigner.fromMnemonic(mn)
       this.signer = signer
       this.client = await new wasm.Client(this.wallet, signer, false)
+
+      this.client.onNotification((notification: any) => {
+        console.log("received notification: ", notification)
+
+        for (const subscriber of this.subscribers.values()) {
+          subscriber.postMessage({ 
+            type: 'NOTIFICATION', 
+            data: notification.reason.NewBlock.hash 
+          })
+        }
+      })        
     }
   }
 
@@ -155,16 +207,6 @@ export class Server {
       console.error('❌ WASM Initialization Failed:', error)
     }
 
-    this.client?.onNotification((notification: any) => {
-      // Broadcast to all connected subscribers
-      this.subscribers.forEach((port) => {
-        port.postMessage({
-          type: 'NOTIFICATION',
-          data: notification,
-        })
-      })
-    })
-
     chrome.runtime.onConnect.addListener((port) => {
       if (port.name !== 'applications' && port.name !== 'extension') {
         return
@@ -174,27 +216,82 @@ export class Server {
 
       port.onMessage.addListener(async (message) => {
         if (message.target !== 'wallet') return false
-        if (message.type === 'CONNECT_WALLET') {
-          chrome.runtime.sendMessage({
-            type: 'CONNECT_WALLET',
-            requestId: 'test123',
-            payload: {
-              type: 'CONNECT_WALLET',
-              origin: 'https://example-dapp.com',
-            },
+
+        const requestId = message.requestId
+        const wrap = (data: any, success = true) => {
+          // Register notification handler with safe broadcasting
+          console.log('sending response to', port, data, message)
+          this.safePostMessage(port, {
+            requestId,
+            success,
+            data,
           })
+        }
+
+        if (
+          message.type === 'CONNECT_WALLET' ||
+          message.type === 'ASSIGNMENT'
+        ) {
+          try {
+            await chrome.runtime.sendMessage({ ...message })
+          } catch (err) {
+            wrap(err, false)
+            return
+          }
+          return
         }
 
         const portName = port.name
         const messageType = message.type
 
-        const requestId = message.requestId
-        const wrap = (data: any, success = true) => {
-          port.postMessage({
-            requestId,
-            success,
-            data,
-          })
+        if (message.type === 'APPROVAL' && port.name === 'extension') {
+          const { status, approvalType } = message.message
+
+          const response = {
+            requestId: message.message.requestId,
+            success: status === 'APPROVED',
+            data: '',
+          }
+
+          const sendResponseToSubscribers = () => {
+            this.broadcastToSubscribers(
+              response,
+              (subscriber) =>
+                subscriber.name === 'applications' && subscriber !== port
+            )
+            wrap('Done')
+          }
+
+          if (
+            status === 'APPROVED' &&
+            approvalType === 'connect_wallet_request'
+          ) {
+            try {
+              const mn = await new this.wasmInstance!.Secret().get('mn')
+              const signer = PrivateKeySigner.fromMnemonic(mn)
+              response.data = signer.address()
+            } catch (err) {
+              console.error('Failed to get address:', err)
+              response.success = false
+              response.data = 'failed to get address'
+            }
+            sendResponseToSubscribers()
+          } else if (
+            status === 'APPROVED' &&
+            approvalType === 'assign_chain_request'
+          ) {
+            try {
+              await this._handleAssignment(message, wrap)
+              response.data = 'Assigned'
+            } catch (err) {
+              console.error('Failed to assign chain:', err)
+              response.success = false
+              response.data = 'failed to assign chain'
+            }
+            sendResponseToSubscribers()
+          } else {
+            sendResponseToSubscribers()
+          }
         }
 
         type MessageHandler = [
@@ -244,12 +341,6 @@ export class Server {
         }
 
         if (portName === 'extension') {
-          if (message.type === 'CONFIRMATION') {
-            // Just forward the confirmation message to the wallet extension UI
-            console.log(message, 'Received confirmation message')
-            wrap('Confirmation received') // Acknowledge receipt
-            return
-          }
           const handlerTuple = extensionHandlers[messageType]
           if (handlerTuple && handlerTuple[0](message)) {
             await handlerTuple[1](message)
@@ -261,12 +352,24 @@ export class Server {
         if (portName === 'applications') {
           const handlerTuple = applicationHandlers[messageType]
           if (handlerTuple && handlerTuple[0](message)) {
-            await handlerTuple[1](message)
+            await handlerTuple[1](message.message)
           }
         }
       })
 
-      port.onDisconnect.addListener((port) => this.subscribers.delete(port))
+      port.onDisconnect.addListener(() => {
+        console.log(`Port disconnected: ${port.name}`)
+        this.subscribers.delete(port)
+        console.log(`Remaining subscribers: ${this.subscribers.size}`)
+
+        // Clear lastError to prevent console warnings
+        if (chrome.runtime.lastError) {
+          console.log(
+            'Port disconnect error:',
+            chrome.runtime.lastError.message
+          )
+        }
+      })
     })
   }
 
@@ -330,13 +433,21 @@ export class Server {
     this.signer = signer
     this.wallet = wallet
 
+    const { payload } = message.message
     try {
       await this.wallet.assignChain(
-        this.signer?.address(),
-        message.chainId,
-        message.timestamp
+        this.signer.address(),
+        payload.chainId,
+        payload.timestamp
       )
-      wrap('Assigned') // Does'nt respond anything
+
+      // free up the old state of this.wallet & this.client after wallet update,
+      // default chain changes.
+      this.wallet.free()
+      this.client?.free()
+
+      await this._initClient()
+      wrap('Assigned')
     } catch (err) {
       wrap(err, false)
     }
@@ -359,6 +470,7 @@ export class Server {
         .application(message.applicationId)
 
       const result = await app.query(message.query)
+
       wrap(result)
     } catch (err) {
       wrap(err, false)
