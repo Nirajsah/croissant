@@ -75,7 +75,7 @@ const NavBar = () => {
             <div className="relative flex flex-col">
               {menuOptions.map((menu, index) => (
                 <div
-                  onClick={() => handleMenuOperation(menu.option)}
+                  // onClick={() => handleMenuOperation(menu.option)}
                   key={index}
                   ref={(el) => (itemRefs.current[index] = el)}
                   onMouseEnter={() => setHoverIndex(index)}

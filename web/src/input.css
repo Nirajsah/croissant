@@ -16,3 +16,15 @@
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+.scroll-container {
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.scroll-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}

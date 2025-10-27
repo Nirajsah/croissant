@@ -17,6 +17,9 @@ export class Server {
   private client: Client | null = null
   private wallet: Wallet | null = null
   private signer: PrivateKeySigner | null = null
+
+  private initLock: Promise<void> | null = null
+  private notificationHandlerRegistered = false
   constructor() {}
 
   private safePostMessage(port: chrome.runtime.Port, message: any): boolean {
@@ -60,10 +63,36 @@ export class Server {
     deadPorts.forEach((port) => this.subscribers.delete(port))
   }
 
+  // private async setDefaultChain(chain_id: string): Promise<Result<string>> {
+  //   try {
+  //     let newWallet = await this.wasmInstance!.Wallet.get()
+  //     if (!newWallet) {
+  //       return { success: false, error: 'No wallet found' }
+  //     }
+  //     this.wallet = newWallet
+  //     await this.wallet!.setDefault(chain_id)
+  //     if (this.client) {
+  //       this.client.free()
+  //       this.client = null // Will be recreated on next use
+  //     }
+  //     return { success: true, data: `Default chain set to ${chain_id}` }
+  //   } catch (error) {
+  //     console.error(error)
+  //     return { success: false, error: `${error}` }
+  //   }
+  // }
   private async setDefaultChain(chain_id: string): Promise<Result<string>> {
-    await this._ensureClientAndWallet()
     try {
-      this.wallet!.set_default_chain(chain_id)
+      // DON'T call Wallet.get() again - it may invalidate your current wallet
+      if (!this.wallet) {
+        return { success: false, error: 'No wallet found' }
+      }
+
+      await this.wallet.setDefault(chain_id)
+
+      // Clean up client to force recreation with new default chain
+      await this._cleanupClient()
+
       return { success: true, data: `Default chain set to ${chain_id}` }
     } catch (error) {
       console.error(error)
@@ -71,6 +100,32 @@ export class Server {
     }
   }
 
+  private async _cleanupClient() {
+    if (this.client) {
+      try {
+        this.client.free()
+      } catch (e) {
+        console.warn('Error freeing client:', e)
+      }
+      this.client = null
+      this.notificationHandlerRegistered = false
+    }
+  }
+
+  private async _cleanupAll() {
+    await this._cleanupClient()
+
+    if (this.wallet) {
+      try {
+        this.wallet.free()
+      } catch (e) {
+        console.warn('Error freeing wallet:', e)
+      }
+      this.wallet = null
+    }
+
+    this.signer = null
+  }
   // private async getLocalBalance(): Promise<Result<bigint | undefined>> {
   //   await this._ensureClientAndWallet()
   //   try {
@@ -87,6 +142,7 @@ export class Server {
       await this.init()
     }
     try {
+      await this._cleanupAll()
       const wallet = await this.wasmInstance!.Wallet.setJsWallet(_wallet)
       this.wallet = wallet
       return { success: true, data: 'Wallet set successfully' }
@@ -109,71 +165,142 @@ export class Server {
     }
   }
 
-  // Need to get mnemonic from secret and use to create the Signer
   private async _initClient() {
-    if (this.wallet) {
+    if (!this.wallet) {
+      throw new Error('Wallet must be initialized before creating client')
+    }
+
+    try {
       const mn = await new this.wasmInstance!.Secret().get('mn')
       const signer = PrivateKeySigner.fromMnemonic(mn)
       this.signer = signer
-      this.client = await new wasm.Client(this.wallet, signer, false)
 
-      this.client.onNotification((notification: any) => {
-        console.log("received notification: ", notification)
+      // Creating client consumes the wallet reference internally
+      // Store it before creating client
+      const walletRef = this.wallet
+      this.client = await new wasm.Client(walletRef, signer, false)
 
-        for (const subscriber of this.subscribers.values()) {
-          subscriber.postMessage({ 
-            type: 'NOTIFICATION', 
-            data: notification.reason.NewBlock.hash 
-          })
-        }
-      })        
+      // Register notification handler only once
+      if (!this.notificationHandlerRegistered && this.client) {
+        this.client.onNotification((notification: any) => {
+          const reason = notification?.reason
+          let data: any
+
+          if (reason?.NewBlock && reason.NewBlock.hash) {
+            data = {
+              event: 'NewBlock',
+              hash: reason.NewBlock.hash,
+              details: reason.NewBlock,
+            }
+          } else if (reason?.Message) {
+            data = { event: 'Message', message: reason.Message }
+          } else if (reason?.NewIncomingBundle) {
+            // Handle NewIncomingBundle type safely
+            data = {
+              event: 'NewIncomingBundle',
+              chain_id: notification?.chain_id,
+              height: reason.NewIncomingBundle.height,
+              origin: reason.NewIncomingBundle.origin,
+              details: reason.NewIncomingBundle,
+            }
+          } else {
+            // Fallback for unknown notification types: log and skip
+            // We know of two notification types as of now.
+            console.warn('Unrecognized notification:', notification)
+            return
+          }
+
+          // Only broadcast if we have active subscribers
+          if (this.subscribers.size > 0) {
+            this.broadcastToSubscribers({
+              type: 'NOTIFICATION',
+              data,
+            })
+          }
+        })
+        this.notificationHandlerRegistered = true
+      }
+
+      // Refresh wallet reference after client creation
+      // The wallet may have been consumed, get fresh reference
+      const newWallet = await this.wasmInstance!.Wallet.get()
+      if (!newWallet) {
+        throw new Error('Wallet not found after client creation')
+      }
+
+      // DON'T free the old wallet
+      this.wallet = newWallet
+    } catch (error) {
+      // Clean up on error
+      await this._cleanupClient()
+      throw error
     }
   }
 
   private async _ensureClientAndWallet() {
-    // TODO(Initialise the wallet if not present)
-    if (!this.wallet && !this.client) {
-      let wallet = await this.wasmInstance!.Wallet.get()
-      if (!wallet) {
-        return { success: false, error: 'No wallet found' }
+    // Use lock to prevent concurrent initialization
+    if (this.initLock) {
+      await this.initLock
+      return
+    }
+
+    this.initLock = (async () => {
+      try {
+        // If we already have both, we're done
+        if (this.wallet && this.client) {
+          return
+        }
+
+        // If we have neither, get wallet first
+        if (!this.wallet && !this.client) {
+          let wallet = await this.wasmInstance!.Wallet.get()
+          if (!wallet) {
+            throw new Error('No wallet found')
+          }
+          this.wallet = wallet
+        }
+
+        // If we have wallet but no client, initialize client
+        if (this.wallet && !this.client) {
+          await this._initClient()
+        }
+      } finally {
+        this.initLock = null
       }
-      this.wallet = wallet
-      await this._initClient()
-      this.wallet = wallet
-    }
-    if (!this.client && this.wallet) {
-      await this._initClient()
-    }
+    })()
+
+    await this.initLock
   }
 
-  /*
-   * CREATE_WALLET method creates a wallet using the faucet,
-   * CLAIM_CHAIN method claims a chain from the faucet,
-   * It returns the claimed chain_id
-   *
-   * 1. Wallet is requried to claim a chain.
-   * 2. Owner hash(public key) is required, will be used to claim the chain.
-   */
   faucetHandlers: Record<OpType, FaucetHandler> = {
     CREATE_WALLET: async (faucet) => {
-      const wallet = await faucet.createWallet()
-      this.wallet = wallet
+      // Clean up any existing wallet/client
+      await this._cleanupAll()
 
       const vault = new this.wasmInstance!.Secret()
-      const mnemonic = PrivateKeySigner.mnemonic() // this needs to be shown to the user.
-      vault.set('mn', mnemonic)
+      const mnemonic = PrivateKeySigner.mnemonic()
       const signer = PrivateKeySigner.fromMnemonic(mnemonic)
-      console.log(signer.address())
+
+      await vault.set('mn', mnemonic)
+
+      const wallet = await faucet.createWallet()
+      this.wallet = wallet
       this.signer = signer
+
       let chainId = await faucet.claimChain(wallet, signer.address())
 
       return { success: true, data: chainId }
     },
     CLAIM_CHAIN: async (faucet) => {
       await this._ensureClientAndWallet()
+
+      if (!this.wallet || !this.signer) {
+        throw new Error('Wallet and signer must be initialized')
+      }
+
       return {
         success: true,
-        data: await faucet.claimChain(this.wallet!, this.signer?.address()),
+        data: await faucet.claimChain(this.wallet, this.signer.address()),
       }
     },
   }
@@ -184,7 +311,8 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   private async faucetAction(op: OpType): Promise<Result<string>> {
-    const FAUCET_URL = 'http://localhost:8079'
+    // const FAUCET_URL = 'http://localhost:8079' // for dev
+    const FAUCET_URL = import.meta.env.VITE_FAUCET_URL
     const faucet = new wasm.Faucet(FAUCET_URL)
     const handler = this.faucetHandlers[op]
     if (!handler) return { success: false, error: 'Invalid operation' }
@@ -362,7 +490,6 @@ export class Server {
         this.subscribers.delete(port)
         console.log(`Remaining subscribers: ${this.subscribers.size}`)
 
-        // Clear lastError to prevent console warnings
         if (chrome.runtime.lastError) {
           console.log(
             'Port disconnect error:',
@@ -424,34 +551,79 @@ export class Server {
     message: any,
     wrap: (data: any, success?: boolean) => void
   ) {
-    const wallet = await this.wasmInstance!.Wallet.get()
-    const mn = await new this.wasmInstance!.Secret().get('mn')
-    const signer = PrivateKeySigner.fromMnemonic(mn)
-
-    if (!wallet || !signer) return wrap('Client Error', false)
-
-    this.signer = signer
-    this.wallet = wallet
-
-    const { payload } = message.message
     try {
+      // Don't call Wallet.get() if we already have a wallet
+      if (!this.wallet) {
+        const wallet = await this.wasmInstance!.Wallet.get()
+        if (!wallet) {
+          return wrap('Wallet not found', false)
+        }
+        this.wallet = wallet
+      }
+
+      if (!this.signer) {
+        const mn = await new this.wasmInstance!.Secret().get('mn')
+        this.signer = PrivateKeySigner.fromMnemonic(mn)
+      }
+
+      const { payload } = message.message
+
       await this.wallet.assignChain(
         this.signer.address(),
         payload.chainId,
         payload.timestamp
       )
 
-      // free up the old state of this.wallet & this.client after wallet update,
-      // default chain changes.
-      this.wallet.free()
-      this.client?.free()
+      // Clean up client to force refresh, but DON'T free wallet
+      await this._cleanupClient()
 
-      await this._initClient()
+      // Refresh wallet reference after assignment
+      const newWallet = await this.wasmInstance!.Wallet.get()
+      if (newWallet) {
+        this.wallet = newWallet
+      }
+
       wrap('Assigned')
     } catch (err) {
-      wrap(err, false)
+      console.error('Assignment error:', err)
+      wrap(`${err}`, false)
     }
   }
+
+  // private async _handleAssignment(
+  //   message: any,
+  //   wrap: (data: any, success?: boolean) => void
+  // ) {
+  //   const wallet = await this.wasmInstance!.Wallet.get()
+  //   const mn = await new this.wasmInstance!.Secret().get('mn')
+  //   const signer = PrivateKeySigner.fromMnemonic(mn)
+
+  //   if (!wallet || !signer) return wrap('Client Error', false)
+
+  //   this.signer = signer
+  //   this.wallet = wallet
+
+  //   const { payload } = message.message
+  //   try {
+  //     await this.wallet.assignChain(
+  //       this.signer.address(),
+  //       payload.chainId,
+  //       payload.timestamp
+  //     )
+
+  //     // free up the old state of this.wallet & this.client after wallet update,
+  //     // default chain changes.
+  //     if (this.client) {
+  //       this.client.free()
+  //       this.wallet.free()
+  //       this.client = null
+  //     }
+
+  //     wrap('Assigned')
+  //   } catch (err) {
+  //     wrap(err, false)
+  //   }
+  // }
 
   private async _handleQueryApplicationRequest(
     message: any,

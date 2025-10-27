@@ -1,7 +1,5 @@
 import * as offscreen from './offscreen/offscreen.ts'
 
-offscreen.setupOffscreenDocument()
-
 // Lifecycle management - setup offscreen when service worker starts
 chrome.runtime.onStartup.addListener(offscreen.setupOffscreenDocument)
 
@@ -51,7 +49,7 @@ const connectWallet = (messagePayload: any, requestId: string) => {
       title: messagePayload.title,
       favicon: messagePayload.favicon,
     },
-    permissions: ['read', 'requestSignatures'],
+    permissions: ['readPublicKey', 'requestSignatures'],
     metaData: {
       method: 'wc_sessionRequest',
     },
@@ -69,7 +67,7 @@ const assignChain = (message: any, payload: any, requestId: string) => {
       title: payload.title,
       favicon: payload.favicon,
     },
-    permissions: ['read', 'requestSignatures'],
+    permissions: ['chainAssignment', 'walletMutation'],
     metaData: {
       method: 'wc_assignChainRequest',
       chainId: message.chainId,

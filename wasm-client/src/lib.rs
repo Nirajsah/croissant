@@ -435,6 +435,7 @@ impl PersistentWallet {
     }
 
     /// Use to update default chain with new chain
+    #[wasm_bindgen(js_name = setDefault)]
     pub async fn set_default_chain(&mut self, chain_id: String) -> JsResult<()> {
         let chain_id = ChainId::from_str(&chain_id).unwrap();
         self.wallet

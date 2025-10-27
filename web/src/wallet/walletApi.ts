@@ -71,6 +71,10 @@ export const walletApi = {
 
   // use to send confirmation messages to the wallet
   sendConfirmation(message: any) {
-    return this.sendMessage({ type: 'CONFIRMATION', message, target })
+    return this.sendMessage({
+      type: 'APPROVAL',
+      message: message,
+      target,
+    })
   },
 }

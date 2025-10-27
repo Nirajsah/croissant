@@ -14,6 +14,7 @@ export default function HomePage() {
   const { wallet, isLoading, setWallet, setIsLoading } = useWallet()
   const navigate = useNavigate()
   const [retryCount, setRetryCount] = React.useState(0)
+  const [update, setUpdate] = React.useState(false)
 
   React.useEffect(() => {
     let timeoutId: any
@@ -56,7 +57,7 @@ export default function HomePage() {
     timeoutId = setTimeout(fetchWallet, 1000)
 
     return () => clearTimeout(timeoutId)
-  }, [navigate, setWallet, retryCount])
+  }, [navigate, setWallet, retryCount, update])
 
   if (isLoading) {
     return <Loading />
@@ -67,15 +68,20 @@ export default function HomePage() {
     return
   }
 
-  const { chains } = wallet
+  const { chains, defaultChain } = wallet
+
+  const handleSetDefault = (chainId: string) => {
+    walletApi.setDefaultChain(chainId).then(() => {
+      setUpdate(true)
+    })
+  }
 
   return (
     <div className="w-full h-full flex flex-col relative">
       <NavBar />
-      {/* {wallet.chains && <WalletCard walletChain={Object.values(chains)} />} */}
       {wallet.chains && (
         <div>
-          <WalletCard walletChain={Object.values(chains)} />
+          <WalletCard walletChain={Object.values(chains)} defaultChain={defaultChain} handleSetDefault={handleSetDefault} />
         </div>
       )}
       <WalletFunction />

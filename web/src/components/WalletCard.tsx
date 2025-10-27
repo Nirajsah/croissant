@@ -1,12 +1,90 @@
-import { RefreshCw } from 'lucide-react'
+import { Copy, RefreshCw } from 'lucide-react'
 import { ChainInfo } from '@/walletTypes'
+import React from 'react'
 
-export const WalletCard = ({ walletChain }: { walletChain: ChainInfo[] }) => {
+export const WalletCard = ({
+  walletChain,
+  defaultChain,
+  handleSetDefault,
+}: {
+  walletChain: ChainInfo[]
+  defaultChain: string
+  handleSetDefault: any
+}) => {
   const chains = Array.isArray(walletChain) ? walletChain : [walletChain]
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    const onWheel = (e: WheelEvent) => {
+      // Let trackpads work naturally
+      if (Math.abs(e.deltaX) > 0) return
+
+      // For vertical mouse wheel, convert to horizontal
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+  /* React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    const onWheel = (e: WheelEvent) => {
+      // Detect trackpad: smaller deltaY values (typically < 15-20)
+      // and often has deltaX values
+      const isTrackpad = Math.abs(e.deltaY) < 20
+
+      if (isTrackpad) {
+        // Allow native smooth trackpad scroll
+        return
+      }
+
+      // For mouse wheel — prevent default and use smooth scrolling
+      e.preventDefault()
+
+      el.scrollBy({
+        left: e.deltaY,
+        behavior: 'smooth'
+      })
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, []) */
+
+
+  /* React.useEffect(() => {
+  const el = scrollRef.current
+  if (!el) return
+
+  const onWheel = (e: WheelEvent) => {
+    if (e.deltaY === 0) return
+    e.preventDefault()
+    el.scrollLeft += e.deltaY * 1.2 // Adjust scroll speed if needed
+  }
+
+  el.addEventListener('wheel', onWheel, { passive: false })
+  return () => el.removeEventListener('wheel', onWheel)
+}, []) */
+
+  const handleCopy = (value: string) => {
+    navigator.clipboard.writeText(value)
+  }
 
   return (
-    <div className="w-full h-[220px]">
-      <div className="flex h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-2 p-2">
+    <div className="w-full h-[220px] max-w-[370px]">
+      <div ref={scrollRef}
+        style={{
+          overflowX: 'auto',
+          scrollBehavior: 'smooth',
+          overscrollBehavior: 'contain'
+        }}
+        className="scroll-container flex h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-2 p-2">
         {chains.map((chain, i) => (
           <div
             key={i}
@@ -23,25 +101,48 @@ export const WalletCard = ({ walletChain }: { walletChain: ChainInfo[] }) => {
                 fill="#191e1c"
               />
             </svg>
-            <div className="absolute w-full min-h-[200px] text-white p-6">
+            <div className="absolute w-full min-h-[200px] text-white">
               <div className="inset-0 flex flex-col justify-between z-10 text-white">
-                <div>
+                <div className="px-6 pt-6">
                   <div className="text-xs text-rose-300">Linera</div>
                   <div className="text-[40px] font-bold">$10.00</div>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="truncate bg-rose-950/30 px-2 py-1 rounded-full">
-                    ChainId: {chain.chainId}
+                <div className="flex w-full mt-4 p-2 flex-col justify-between items-start text-xs">
+                  <span className="flex items-center gap-2 px-2 py-1 rounded-full text-sm w-full min-w-0">
+                    <span className="truncate">ChainId: {chain.chainId}</span>
+                    <Copy
+                      size={14}
+                      className="cursor-pointer text-gray-500 hover:text-gray-700 flex-shrink-0"
+                      onClick={() => handleCopy(chain.chainId)}
+                    />
                   </span>
-                  <span className="truncate bg-rose-950/30 px-2 py-1 rounded-full">
-                    Account: {chain.owner}
+                  <span className="flex items-center gap-2 px-2 py-1 rounded-full text-sm w-full min-w-0">
+                    <span className="truncate">Account: {chain.owner}</span>
+                    <Copy
+                      size={14}
+                      className="cursor-pointer text-gray-500 hover:text-gray-700 flex-shrink-0"
+                      onClick={() => handleCopy(chain.owner)}
+                    />
                   </span>
                 </div>
+                {defaultChain === chain.chainId ? (
+                  <button
+                    disabled={true}
+                    className="text-white bg-black text-xs absolute top-1 right-4 px-4 py-1 rounded-3xl flex justify-center items-center gap-1 z-20"
+                  >
+                    <RefreshCw width={15} />
+                    Default
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleSetDefault(chain.chainId)}
+                    className="text-black text-xs absolute top-1 right-0 border px-3 py-0.5 rounded-3xl flex justify-center items-center gap-0.5 bg-white/90 z-20"
+                  >
+                    <RefreshCw width={15} />
+                    Set Default
+                  </button>
+                )}
               </div>
-              <button className="text-black text-xs absolute top-0.5 right-2.5 border px-3 py-0.5 rounded-3xl flex justify-center items-center gap-1 bg-white/90 z-20">
-                <RefreshCw width={15} />
-                sync now
-              </button>
             </div>
           </div>
         ))}

@@ -39,7 +39,7 @@ const rootElement = document.getElementById('root')
 if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <WalletProvider>
-      <div className="font-ubuntu font-bold relative text-text-inverted w-[370px] h-[600px] flex flex-col items-center justify-center bg-background-light">
+      <div className="font-ubuntu overflow-hidden font-bold relative text-text-inverted w-[370px] h-[600px] flex flex-col items-center justify-center bg-background-light">
         <MessageProvider>
           <RouterProvider router={router} />
         </MessageProvider>
