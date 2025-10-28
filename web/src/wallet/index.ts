@@ -20,6 +20,8 @@ export class Server {
 
   private initLock: Promise<void> | null = null
   private notificationHandlerRegistered = false
+  private isUpdatingWallet = false // IMPORTANT: we need this to make sure we are not processing any incoming message when wallet is in updating state
+
   constructor() {}
 
   private safePostMessage(port: chrome.runtime.Port, message: any): boolean {
@@ -63,27 +65,9 @@ export class Server {
     deadPorts.forEach((port) => this.subscribers.delete(port))
   }
 
-  // private async setDefaultChain(chain_id: string): Promise<Result<string>> {
-  //   try {
-  //     let newWallet = await this.wasmInstance!.Wallet.get()
-  //     if (!newWallet) {
-  //       return { success: false, error: 'No wallet found' }
-  //     }
-  //     this.wallet = newWallet
-  //     await this.wallet!.setDefault(chain_id)
-  //     if (this.client) {
-  //       this.client.free()
-  //       this.client = null // Will be recreated on next use
-  //     }
-  //     return { success: true, data: `Default chain set to ${chain_id}` }
-  //   } catch (error) {
-  //     console.error(error)
-  //     return { success: false, error: `${error}` }
-  //   }
-  // }
   private async setDefaultChain(chain_id: string): Promise<Result<string>> {
     try {
-      // DON'T call Wallet.get() again - it may invalidate your current wallet
+      this.isUpdatingWallet = true
       if (!this.wallet) {
         return { success: false, error: 'No wallet found' }
       }
@@ -91,10 +75,18 @@ export class Server {
       await this.wallet.setDefault(chain_id)
 
       // Clean up client to force recreation with new default chain
-      await this._cleanupClient()
+      await this._cleanupAll()
+
+      // reinitialize fresh client and wallet
+      await this._ensureClientAndWallet()
+
+      // set isUpdatingWallet false
+      this.isUpdatingWallet = false
 
       return { success: true, data: `Default chain set to ${chain_id}` }
     } catch (error) {
+      // on error just set it to false
+      this.isUpdatingWallet = false
       console.error(error)
       return { success: false, error: `${error}` }
     }
@@ -123,8 +115,6 @@ export class Server {
       }
       this.wallet = null
     }
-
-    this.signer = null
   }
   // private async getLocalBalance(): Promise<Result<bigint | undefined>> {
   //   await this._ensureClientAndWallet()
@@ -142,11 +132,14 @@ export class Server {
       await this.init()
     }
     try {
+      this.isUpdatingWallet = true
+
       await this._cleanupAll()
       const wallet = await this.wasmInstance!.Wallet.setJsWallet(_wallet)
       this.wallet = wallet
       return { success: true, data: 'Wallet set successfully' }
     } catch (error) {
+      this.isUpdatingWallet = false
       console.error(error)
       return { success: false, error: `${error}` }
     }
@@ -178,7 +171,7 @@ export class Server {
       // Creating client consumes the wallet reference internally
       // Store it before creating client
       const walletRef = this.wallet
-      this.client = await new wasm.Client(walletRef, signer, false)
+      this.client = await new wasm.Client(walletRef, signer, true)
 
       // Register notification handler only once
       if (!this.notificationHandlerRegistered && this.client) {
@@ -312,7 +305,7 @@ export class Server {
    */
   private async faucetAction(op: OpType): Promise<Result<string>> {
     // const FAUCET_URL = 'http://localhost:8079' // for dev
-    const FAUCET_URL = import.meta.env.VITE_FAUCET_URL
+    const FAUCET_URL = "https://faucet.testnet-conway.linera.net/"
     const faucet = new wasm.Faucet(FAUCET_URL)
     const handler = this.faucetHandlers[op]
     if (!handler) return { success: false, error: 'Invalid operation' }
@@ -347,8 +340,6 @@ export class Server {
 
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
-          // Register notification handler with safe broadcasting
-          console.log('sending response to', port, data, message)
           this.safePostMessage(port, {
             requestId,
             success,
@@ -366,6 +357,14 @@ export class Server {
             wrap(err, false)
             return
           }
+          return
+        }
+
+        
+        // reject all the message except PING when updating the wallet
+        if (this.isUpdatingWallet && message.type !== 'PING') {
+          console.log('Rejecting message during wallet update:', message.type)
+          wrap('Wallet is updating, please retry', false)
           return
         }
 
@@ -552,10 +551,13 @@ export class Server {
     wrap: (data: any, success?: boolean) => void
   ) {
     try {
+      // set this to make sure we don't process any message at this time
+      this.isUpdatingWallet = true
       // Don't call Wallet.get() if we already have a wallet
       if (!this.wallet) {
         const wallet = await this.wasmInstance!.Wallet.get()
         if (!wallet) {
+          this.isUpdatingWallet = false
           return wrap('Wallet not found', false)
         }
         this.wallet = wallet
@@ -583,47 +585,15 @@ export class Server {
         this.wallet = newWallet
       }
 
+      // after update, now we are ready to process messages
+      this.isUpdatingWallet = false
+
       wrap('Assigned')
     } catch (err) {
       console.error('Assignment error:', err)
       wrap(`${err}`, false)
     }
   }
-
-  // private async _handleAssignment(
-  //   message: any,
-  //   wrap: (data: any, success?: boolean) => void
-  // ) {
-  //   const wallet = await this.wasmInstance!.Wallet.get()
-  //   const mn = await new this.wasmInstance!.Secret().get('mn')
-  //   const signer = PrivateKeySigner.fromMnemonic(mn)
-
-  //   if (!wallet || !signer) return wrap('Client Error', false)
-
-  //   this.signer = signer
-  //   this.wallet = wallet
-
-  //   const { payload } = message.message
-  //   try {
-  //     await this.wallet.assignChain(
-  //       this.signer.address(),
-  //       payload.chainId,
-  //       payload.timestamp
-  //     )
-
-  //     // free up the old state of this.wallet & this.client after wallet update,
-  //     // default chain changes.
-  //     if (this.client) {
-  //       this.client.free()
-  //       this.wallet.free()
-  //       this.client = null
-  //     }
-
-  //     wrap('Assigned')
-  //   } catch (err) {
-  //     wrap(err, false)
-  //   }
-  // }
 
   private async _handleQueryApplicationRequest(
     message: any,

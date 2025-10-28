@@ -1,7 +1,9 @@
 import * as offscreen from './offscreen/offscreen.ts'
 
+offscreen.setupOffscreenDocument()
+
 // Lifecycle management - setup offscreen when service worker starts
-chrome.runtime.onStartup.addListener(offscreen.setupOffscreenDocument)
+// chrome.runtime.onStartup.addListener(offscreen.setupOffscreenDocument)
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   try {

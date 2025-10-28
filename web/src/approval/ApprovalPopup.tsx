@@ -1,6 +1,6 @@
 import { useMessage } from '@/MessageProvider'
 import { walletApi } from '@/wallet/walletApi'
-import { useState } from 'react'
+import React, { useState } from 'react'
 
 type WalletConnectData = {
   type: string
@@ -111,7 +111,7 @@ export default function WalletConnectApproval() {
           {/* dApp card */}
           <div className="border rounded-xl py-2 px-3">
             <div className="flex items-center gap-3">
-              <Favicon src={favicon} label={domainInitials(title)} />
+              <Favicon src={favicon} label={domainInitials(title)} origin={origin} />
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-gray-500">{origin}</p>
                 <p className="truncate font-semibold text-gray-900">{title}</p>
@@ -189,11 +189,10 @@ export default function WalletConnectApproval() {
           <button
             onClick={handleReject}
             disabled={loading}
-            className={`w-full rounded-full border-2 border-gray-200 bg-white py-2.5 font-medium transition active:scale-[0.99] ${
-              loading
-                ? 'cursor-not-allowed text-gray-400'
-                : 'hover:bg-gray-50 text-gray-900'
-            }`}
+            className={`w-full rounded-full border-2 border-gray-200 bg-white py-2.5 font-medium transition active:scale-[0.99] ${loading
+              ? 'cursor-not-allowed text-gray-400'
+              : 'hover:bg-gray-50 text-gray-900'
+              }`}
             aria-busy={isRejecting}
           >
             {isRejecting ? (
@@ -234,11 +233,10 @@ function Spinner({
   return (
     <span className="inline-flex items-center gap-2">
       <span
-        className={`h-[15px] w-[15px] animate-spin rounded-full border-2 ${
-          isLight
-            ? 'border-white/50 border-t-white'
-            : 'border-gray-400 border-t-gray-900'
-        }`}
+        className={`h-[15px] w-[15px] animate-spin rounded-full border-2 ${isLight
+          ? 'border-white/50 border-t-white'
+          : 'border-gray-400 border-t-gray-900'
+          }`}
         style={{
           borderRightColor: 'transparent',
           borderBottomColor: 'transparent',
@@ -255,27 +253,67 @@ function Spinner({
   )
 }
 
-function Favicon({ src, label }: { src?: string; label: string }) {
-  const [imgError, setImgError] = useState(false)
 
-  if (src && !imgError) {
+function Favicon({ src, label, origin }: { src?: string; label: string; origin?: string }) {
+  const [imgError, setImgError] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [currentSrc, setCurrentSrc] = useState(src)
+
+  React.useEffect(() => {
+    setCurrentSrc(src)
+    setImgError(false)
+    setIsLoading(true)
+  }, [src])
+
+  const handleError = () => {
+    // Try Google's favicon service as fallback
+    if (currentSrc !== src || !origin) {
+      setImgError(true)
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const domain = new URL(origin).hostname
+      const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
+      setCurrentSrc(googleFavicon)
+      setIsLoading(true)
+    } catch {
+      setImgError(true)
+      setIsLoading(false)
+    }
+  }
+
+  const getFallbackText = () => {
+    if (!label || label.length === 0) return '?'
+    return label.length <= 3 ? label.toUpperCase() : label.slice(0, 2).toUpperCase()
+  }
+
+  if (currentSrc && !imgError) {
     return (
-      <img
-        src={src}
-        alt={`${label} favicon`}
-        className="h-12 w-12 rounded-xl object-cover shadow-sm"
-        onError={() => setImgError(true)}
-      />
+      <div className="relative h-12 w-12">
+        {isLoading && (
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-600/20 animate-pulse" />
+        )}
+        <img
+          src={currentSrc}
+          alt={`${label} favicon`}
+          className={`h-12 w-12 rounded-xl object-cover shadow-sm transition-opacity ${isLoading ? 'opacity-0' : 'opacity-100'
+            }`}
+          onError={handleError}
+          onLoad={() => setIsLoading(false)}
+        />
+      </div>
     )
   }
 
-  // Fallback placeholder: first letter of label
   return (
-    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 text-white grid place-items-center font-semibold shadow-md">
-      {label[0].toUpperCase()}
+    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 text-white grid place-items-center font-semibold text-sm shadow-md">
+      {getFallbackText()}
     </div>
   )
 }
+
 
 function Row({
   label,
@@ -290,9 +328,8 @@ function Row({
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-gray-500">{label}</span>
       <span
-        className={`text-sm text-gray-900 ${
-          mono ? 'font-mono' : 'font-medium'
-        } truncate max-w-[56%]`}
+        className={`text-sm text-gray-900 ${mono ? 'font-mono' : 'font-medium'
+          } truncate max-w-[56%]`}
       >
         {value || '—'}
       </span>
@@ -311,59 +348,3 @@ function domainInitials(host: string) {
   return s.slice(0, 2).toUpperCase()
 }
 
-function prettifyDomain(host: string) {
-  return host
-    .replace(/^www\./, '')
-    .split('.')[0]
-    .replace(/[-_]/g, ' ')
-}
-
-function shortMiddle(s: string, span = 4) {
-  if (!s) return ''
-  if (s.length <= span * 2 + 3) return s
-  return `${s.slice(0, span)}…${s.slice(-span)}`
-}
-
-function safeUrl(raw?: string) {
-  try {
-    return raw ? new URL(raw) : undefined
-  } catch {
-    return undefined
-  }
-}
-
-function chainLabel(id?: number) {
-  const map: Record<number, string> = {
-    1: 'Ethereum Mainnet',
-    137: 'Polygon PoS',
-    10: 'Optimism',
-    42161: 'Arbitrum One',
-    8453: 'Base',
-    56: 'BNB Chain',
-    43114: 'Avalanche C-Chain',
-  }
-  return id ? map[id] || `Chain ${id}` : 'Unknown'
-}
-
-function formatAmount(value?: string | number, decimals = 18, symbol = 'ETH') {
-  if (value === undefined || value === null) return '—'
-  try {
-    const bn =
-      typeof value === 'string'
-        ? BigInt(value)
-        : BigInt(Math.trunc(Number(value)))
-    const whole = Number(bn) / 10 ** decimals
-    return `${whole.toLocaleString(undefined, {
-      maximumFractionDigits: 6,
-    })} ${symbol}`
-  } catch {
-    return `${value} ${symbol}`
-  }
-}
-
-function formatGas(gas?: string | number, gasPrice?: string | number) {
-  if (!gas && !gasPrice) return 'Auto'
-  const g = gas ? `${gas}` : ''
-  const gp = gasPrice ? `${Number(gasPrice) / 1e9} Gwei` : ''
-  return [g, gp].filter(Boolean).join(' • ')
-}
