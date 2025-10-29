@@ -277,10 +277,6 @@ impl PersistentWallet {
             Some(val) => val,
             None => return Ok(None),
         };
-        let default_val = match default_result {
-            Some(ref val) => val,
-            None => return Ok(None),
-        };
         let genesis_val = match genesis_result {
             Some(val) => val,
             None => return Ok(None),
@@ -514,6 +510,17 @@ impl Client {
             wallet,
             signer,
         )));
+
+        // CRITICAL: Synchronize all chains before starting listener
+        {
+            let mut guard = client_context.lock().await;
+            let chain_ids: Vec<_> = guard.wallet().chain_ids();
+            for chain_id in chain_ids {
+                let client = guard.make_chain_client(chain_id);
+                client.synchronize_from_validators().await?;
+                guard.update_wallet(&client).await?;
+            }
+        }
 
         let client_context_clone = client_context.clone();
         let chain_listener = ChainListener::new(

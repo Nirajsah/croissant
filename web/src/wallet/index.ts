@@ -68,8 +68,14 @@ export class Server {
   private async setDefaultChain(chain_id: string): Promise<Result<string>> {
     try {
       this.isUpdatingWallet = true
-      if (!this.wallet) {
-        return { success: false, error: 'No wallet found' }
+      if (!this.wallet || this.wallet === null) {
+        console.log("wallet is not present")
+        const wallet = await this.wasmInstance!.Wallet.get()
+        if (!wallet) {
+          this.isUpdatingWallet = false
+          return { success: false, error: 'No wallet found' }
+        }
+        this.wallet = wallet
       }
 
       await this.wallet.setDefault(chain_id)
@@ -171,7 +177,7 @@ export class Server {
       // Creating client consumes the wallet reference internally
       // Store it before creating client
       const walletRef = this.wallet
-      this.client = await new wasm.Client(walletRef, signer, true)
+      this.client = await new wasm.Client(walletRef, signer, false)
 
       // Register notification handler only once
       if (!this.notificationHandlerRegistered && this.client) {
@@ -230,46 +236,25 @@ export class Server {
     }
   }
 
-  private async _ensureClientAndWallet() {
-    // Use lock to prevent concurrent initialization
-    if (this.initLock) {
-      await this.initLock
-      return
-    }
-
-    this.initLock = (async () => {
-      try {
-        // If we already have both, we're done
-        if (this.wallet && this.client) {
-          return
-        }
-
-        // If we have neither, get wallet first
-        if (!this.wallet && !this.client) {
-          let wallet = await this.wasmInstance!.Wallet.get()
-          if (!wallet) {
-            throw new Error('No wallet found')
-          }
-          this.wallet = wallet
-        }
-
-        // If we have wallet but no client, initialize client
-        if (this.wallet && !this.client) {
-          await this._initClient()
-        }
-      } finally {
-        this.initLock = null
+  
+ private async _ensureClientAndWallet() {
+    // TODO(Initialise the wallet if not present)
+    if (!this.wallet && !this.client) {
+      let wallet = await this.wasmInstance!.Wallet.get()
+      if (!wallet) {
+        return { success: false, error: 'No wallet found' }
       }
-    })()
-
-    await this.initLock
+      this.wallet = wallet
+      await this._initClient()
+      this.wallet = wallet
+    }
+    if (!this.client && this.wallet) {
+      await this._initClient()
+    }
   }
 
   faucetHandlers: Record<OpType, FaucetHandler> = {
     CREATE_WALLET: async (faucet) => {
-      // Clean up any existing wallet/client
-      await this._cleanupAll()
-
       const vault = new this.wasmInstance!.Secret()
       const mnemonic = PrivateKeySigner.mnemonic()
       const signer = PrivateKeySigner.fromMnemonic(mnemonic)
@@ -286,7 +271,6 @@ export class Server {
     },
     CLAIM_CHAIN: async (faucet) => {
       await this._ensureClientAndWallet()
-
       if (!this.wallet || !this.signer) {
         throw new Error('Wallet and signer must be initialized')
       }
@@ -304,8 +288,8 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   private async faucetAction(op: OpType): Promise<Result<string>> {
-    // const FAUCET_URL = 'http://localhost:8079' // for dev
-    const FAUCET_URL = "https://faucet.testnet-conway.linera.net/"
+   // const FAUCET_URL = import.meta.env.VITE_FAUCET_URL
+    const FAUCET_URL = "http://localhost:8079"
     const faucet = new wasm.Faucet(FAUCET_URL)
     const handler = this.faucetHandlers[op]
     if (!handler) return { success: false, error: 'Invalid operation' }
@@ -333,13 +317,16 @@ export class Server {
         return
       }
 
-      this.subscribers.add(port)
+      if (!this.subscribers.has(port)) {
+        this.subscribers.add(port)
+      }
 
       port.onMessage.addListener(async (message) => {
         if (message.target !== 'wallet') return false
 
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
+          console.log("sending mesage to ", port, message, data)
           this.safePostMessage(port, {
             requestId,
             success,
@@ -362,11 +349,11 @@ export class Server {
 
         
         // reject all the message except PING when updating the wallet
-        if (this.isUpdatingWallet && message.type !== 'PING') {
+        /* if (message.type !== 'PING') {
           console.log('Rejecting message during wallet update:', message.type)
           wrap('Wallet is updating, please retry', false)
           return
-        }
+        } */
 
         const portName = port.name
         const messageType = message.type
@@ -408,7 +395,9 @@ export class Server {
             approvalType === 'assign_chain_request'
           ) {
             try {
+              console.log("called to wallet assigned")
               await this._handleAssignment(message, wrap)
+              console.log("wallet assigned")
               response.data = 'Assigned'
             } catch (err) {
               console.error('Failed to assign chain:', err)
@@ -552,9 +541,22 @@ export class Server {
   ) {
     try {
       // set this to make sure we don't process any message at this time
-      this.isUpdatingWallet = true
+       this.isUpdatingWallet = true
       // Don't call Wallet.get() if we already have a wallet
+      await this._ensureClientAndWallet()
+
+      // fallback
+      if (!this.signer) {
+        const mn = await new this.wasmInstance!.Secret().get('mn')
+        this.signer = PrivateKeySigner.fromMnemonic(mn)
+      }
+
+      const { payload } = message.message
+
+      console.log("wallet is present", this.wallet)
+
       if (!this.wallet) {
+        console.log("wallet is not present")
         const wallet = await this.wasmInstance!.Wallet.get()
         if (!wallet) {
           this.isUpdatingWallet = false
@@ -563,18 +565,15 @@ export class Server {
         this.wallet = wallet
       }
 
-      if (!this.signer) {
-        const mn = await new this.wasmInstance!.Secret().get('mn')
-        this.signer = PrivateKeySigner.fromMnemonic(mn)
-      }
-
-      const { payload } = message.message
+     
+      console.log("wallet is present now it should exist", this.wallet)
 
       await this.wallet.assignChain(
         this.signer.address(),
         payload.chainId,
         payload.timestamp
       )
+
 
       // Clean up client to force refresh, but DON'T free wallet
       await this._cleanupClient()
