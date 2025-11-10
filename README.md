@@ -6,17 +6,26 @@ Croissant is a browser extension that provides a seamless interface for interact
 
 The extension is built with **React**, **TypeScript**, **Vite**, **TailwindCSS**, and **Rust/WASM** for the blockchain client.
 
+**USE `linera-protocol v0.15.4 or v0.15.3` (testnet-conway branch)**
+
 ---
 
 ## Quick Start
 
 ```bash
+root/
+  |_linera-protocol (v.0.15.4) 
+  |_croissant
+
 # Clone the repository
 git clone https://github.com/Nirajsah/croissant.git
 cd croissant
 
 # Install dependencies (pnpm is recommended)
 pnpm install
+
+#Build 
+pnpm build # (client and extension)
 
 # Build the WASM client (release)
 pnpm --filter wasm-client run build
