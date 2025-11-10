@@ -14,7 +14,6 @@ export class WasmManager {
 
       this.wasm = wasm
       this.initialized = true
-      console.info('WASM initialized')
     } catch (err) {
       console.info('WASM init failed', err)
       throw err

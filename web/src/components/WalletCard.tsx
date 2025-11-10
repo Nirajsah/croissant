@@ -1,6 +1,7 @@
 import { Copy, RefreshCw } from 'lucide-react'
 import { ChainInfo } from '@/walletTypes'
 import React from 'react'
+import { walletApi } from '@/wallet/walletApi'
 
 export const WalletCard = ({
   walletChain,
@@ -13,6 +14,16 @@ export const WalletCard = ({
 }) => {
   const chains = Array.isArray(walletChain) ? walletChain : [walletChain]
   const scrollRef = React.useRef<HTMLDivElement>(null)
+  const [balance, setBalance] = React.useState(0);
+
+
+  React.useEffect(() => {
+    ; (async function getBalance() {
+      const bal = await walletApi.getBalances()
+      setBalance(bal)
+    })()
+  }, [])
+
 
   React.useEffect(() => {
     const el = scrollRef.current
@@ -30,47 +41,6 @@ export const WalletCard = ({
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
-  /* React.useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-
-    const onWheel = (e: WheelEvent) => {
-      // Detect trackpad: smaller deltaY values (typically < 15-20)
-      // and often has deltaX values
-      const isTrackpad = Math.abs(e.deltaY) < 20
-
-      if (isTrackpad) {
-        // Allow native smooth trackpad scroll
-        return
-      }
-
-      // For mouse wheel — prevent default and use smooth scrolling
-      e.preventDefault()
-
-      el.scrollBy({
-        left: e.deltaY,
-        behavior: 'smooth'
-      })
-    }
-
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, []) */
-
-
-  /* React.useEffect(() => {
-  const el = scrollRef.current
-  if (!el) return
-
-  const onWheel = (e: WheelEvent) => {
-    if (e.deltaY === 0) return
-    e.preventDefault()
-    el.scrollLeft += e.deltaY * 1.2 // Adjust scroll speed if needed
-  }
-
-  el.addEventListener('wheel', onWheel, { passive: false })
-  return () => el.removeEventListener('wheel', onWheel)
-}, []) */
 
   const handleCopy = (value: string) => {
     navigator.clipboard.writeText(value)
@@ -105,7 +75,7 @@ export const WalletCard = ({
               <div className="inset-0 flex flex-col justify-between z-10 text-white">
                 <div className="px-6 pt-6">
                   <div className="text-xs text-rose-300">Linera</div>
-                  <div className="text-[40px] font-bold">$10.00</div>
+                  <div className="text-[40px] font-bold">{balance} LNT</div>
                 </div>
                 <div className="flex w-full mt-4 p-2 flex-col justify-between items-start text-xs">
                   <span className="flex items-center gap-2 px-2 py-1 rounded-full text-sm w-full min-w-0">

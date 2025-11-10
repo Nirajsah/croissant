@@ -9,7 +9,6 @@
   },
   "permissions": [
     "windows",
-    "tabs",
     "offscreen",
     "storage",
     "unlimitedStorage",

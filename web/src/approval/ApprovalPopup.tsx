@@ -41,7 +41,10 @@ type ApprovalMessage = WalletConnectData | AssignChainData
 export default function WalletConnectApproval() {
   const message = useMessage()
 
+  console.log("message received in popup", message)
+
   const messagePayload = message.payload as ApprovalMessage
+
 
   const [loading, setLoading] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
