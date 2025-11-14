@@ -41,10 +41,7 @@ type ApprovalMessage = WalletConnectData | AssignChainData
 export default function WalletConnectApproval() {
   const message = useMessage()
 
-  console.log("message received in popup", message)
-
   const messagePayload = message.payload as ApprovalMessage
-
 
   const [loading, setLoading] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
@@ -114,7 +111,11 @@ export default function WalletConnectApproval() {
           {/* dApp card */}
           <div className="border rounded-xl py-2 px-3">
             <div className="flex items-center gap-3">
-              <Favicon src={favicon} label={domainInitials(title)} origin={origin} />
+              <Favicon
+                src={favicon}
+                label={domainInitials(title)}
+                origin={origin}
+              />
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-gray-500">{origin}</p>
                 <p className="truncate font-semibold text-gray-900">{title}</p>
@@ -192,10 +193,11 @@ export default function WalletConnectApproval() {
           <button
             onClick={handleReject}
             disabled={loading}
-            className={`w-full rounded-full border-2 border-gray-200 bg-white py-2.5 font-medium transition active:scale-[0.99] ${loading
-              ? 'cursor-not-allowed text-gray-400'
-              : 'hover:bg-gray-50 text-gray-900'
-              }`}
+            className={`w-full rounded-full border-2 border-gray-200 bg-white py-2.5 font-medium transition active:scale-[0.99] ${
+              loading
+                ? 'cursor-not-allowed text-gray-400'
+                : 'hover:bg-gray-50 text-gray-900'
+            }`}
             aria-busy={isRejecting}
           >
             {isRejecting ? (
@@ -236,10 +238,11 @@ function Spinner({
   return (
     <span className="inline-flex items-center gap-2">
       <span
-        className={`h-[15px] w-[15px] animate-spin rounded-full border-2 ${isLight
-          ? 'border-white/50 border-t-white'
-          : 'border-gray-400 border-t-gray-900'
-          }`}
+        className={`h-[15px] w-[15px] animate-spin rounded-full border-2 ${
+          isLight
+            ? 'border-white/50 border-t-white'
+            : 'border-gray-400 border-t-gray-900'
+        }`}
         style={{
           borderRightColor: 'transparent',
           borderBottomColor: 'transparent',
@@ -256,8 +259,15 @@ function Spinner({
   )
 }
 
-
-function Favicon({ src, label, origin }: { src?: string; label: string; origin?: string }) {
+function Favicon({
+  src,
+  label,
+  origin,
+}: {
+  src?: string
+  label: string
+  origin?: string
+}) {
   const [imgError, setImgError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [currentSrc, setCurrentSrc] = useState(src)
@@ -289,7 +299,9 @@ function Favicon({ src, label, origin }: { src?: string; label: string; origin?:
 
   const getFallbackText = () => {
     if (!label || label.length === 0) return '?'
-    return label.length <= 3 ? label.toUpperCase() : label.slice(0, 2).toUpperCase()
+    return label.length <= 3
+      ? label.toUpperCase()
+      : label.slice(0, 2).toUpperCase()
   }
 
   if (currentSrc && !imgError) {
@@ -301,8 +313,9 @@ function Favicon({ src, label, origin }: { src?: string; label: string; origin?:
         <img
           src={currentSrc}
           alt={`${label} favicon`}
-          className={`h-12 w-12 rounded-xl object-cover shadow-sm transition-opacity ${isLoading ? 'opacity-0' : 'opacity-100'
-            }`}
+          className={`h-12 w-12 rounded-xl object-cover shadow-sm transition-opacity ${
+            isLoading ? 'opacity-0' : 'opacity-100'
+          }`}
           onError={handleError}
           onLoad={() => setIsLoading(false)}
         />
@@ -317,7 +330,6 @@ function Favicon({ src, label, origin }: { src?: string; label: string; origin?:
   )
 }
 
-
 function Row({
   label,
   value,
@@ -331,8 +343,9 @@ function Row({
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-gray-500">{label}</span>
       <span
-        className={`text-sm text-gray-900 ${mono ? 'font-mono' : 'font-medium'
-          } truncate max-w-[56%]`}
+        className={`text-sm text-gray-900 ${
+          mono ? 'font-mono' : 'font-medium'
+        } truncate max-w-[56%]`}
       >
         {value || '—'}
       </span>
@@ -350,4 +363,3 @@ function domainInitials(host: string) {
   const s = parts[0] || host
   return s.slice(0, 2).toUpperCase()
 }
-

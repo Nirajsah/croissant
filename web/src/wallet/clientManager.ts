@@ -144,7 +144,6 @@ export class ClientManager {
 
   async query(message: any) {
     try {
-      console.log("we are clientmanager", message)
       const app = await this.client!.frontend().application(
         message.applicationId
       )

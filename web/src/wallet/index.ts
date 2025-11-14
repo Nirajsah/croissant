@@ -32,6 +32,8 @@ export class Server {
         return false
       }
 
+      console.log('sending message to port', port, message)
+
       port.postMessage(message)
       return true
     } catch (error) {
@@ -184,8 +186,9 @@ export class Server {
     } catch (err) {
       response.success = false
       response.data = String(err)
+    } finally {
+      wrap('Done')
     }
-    wrap(message.status, response.success)
 
     this.subscribers.forEach(
       (port) => port.name == 'applications' && port.postMessage(response)
@@ -248,8 +251,6 @@ export class Server {
         const wrap = (data: any, success = true) => {
           this.safePostMessage(port, { requestId, success, data })
         }
-
-        console.log('here is the message and port', port, message)
         try {
           await this.routeMessage(port, message, wrap)
         } catch (err) {
@@ -290,8 +291,8 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   private async faucetAction(op: OpType): Promise<Result<string>> {
-    const FAUCET_URL = 'http://localhost:8079'
-    // const FAUCET_URL="https://faucet.testnet-conway.linera.net/"
+    // const FAUCET_URL = 'http://localhost:8079'
+    const FAUCET_URL = 'https://faucet.testnet-conway.linera.net/'
     const faucet = new wasm.Faucet(FAUCET_URL)
     const handler = this.faucetHandlers[op]
     if (!handler) return { success: false, error: 'Invalid operation' }
@@ -330,6 +331,7 @@ export class Server {
         })
       }
     } catch (error) {
+      await this.wallet.reInitWallet() // reinitialize wallet after client init
       console.warn('Failed to initialize client:', error)
       throw error
     }
@@ -355,155 +357,6 @@ export class Server {
     await this.initClient()
 
     this.setupPortConnections()
-    // chrome.runtime.onConnect.addListener((port) => {
-    //   if (
-    //     port.name !== 'applications' &&
-    //     port.name !== 'extension' &&
-    //     this.isUpdatingWallet
-    //   ) {
-    //     return
-    //   }
-
-    //   if (!this.subscribers.has(port)) {
-    //     this.subscribers.add(port)
-    //   }
-
-    //   port.onMessage.addListener(async (message) => {
-    //     if (message.target !== 'wallet') return false
-
-    //     const requestId = message.requestId
-    //     const wrap = (data: any, success = true) => {
-    //       this.safePostMessage(port, {
-    //         requestId,
-    //         success,
-    //         data,
-    //       })
-    //     }
-
-    //     if (
-    //       message.type === 'CONNECT_WALLET' ||
-    //       message.type === 'ASSIGNMENT'
-    //     ) {
-    //       try {
-    //         await chrome.runtime.sendMessage({ ...message })
-    //       } catch (err) {
-    //         wrap(err, false)
-    //         return
-    //       }
-    //       return
-    //     }
-
-    //     const portName = port.name
-    //     const messageType = message.type
-
-    //     if (messageType === 'APPROVAL' && portName === 'extension') {
-    //       const { status, approvalType } = message.message
-
-    //       const response = {
-    //         requestId: message.message.requestId,
-    //         success: status === 'APPROVED',
-    //         data: '',
-    //       }
-
-    //       if (
-    //         status === 'APPROVED' &&
-    //         approvalType === 'connect_wallet_request'
-    //       ) {
-    //         try {
-    //           response.data = this.wallet.getSigner().address()
-    //         } catch (err) {
-    //           response.data = 'FAILED to get signer address'
-    //         }
-    //         this.safePostMessage(port, response)
-    //       } else if (
-    //         status === 'APPROVED' &&
-    //         approvalType === 'assign_chain_request'
-    //       ) {
-    //         try {
-    //           await this._handleAssignment(message, wrap)
-    //           response.data = status
-    //         } catch (err) {
-    //           response.data = 'FAILED to assign chain'
-    //         }
-    //         this.safePostMessage(port, response)
-    //       } else {
-    //         this.safePostMessage(port, response)
-    //       }
-    //     }
-
-    //     type MessageHandler = [
-    //       (message: any) => message is any,
-    //       (message: any) => Promise<void>
-    //     ]
-
-    //     const extensionHandlers: Record<string, MessageHandler> = {
-    //       SET_WALLET: [
-    //         guard.isSetWalletRequest,
-    //         async (message) => this._handleSetWallet(message, wrap),
-    //       ],
-    //       GET_WALLET: [
-    //         guard.isGetWalletRequest,
-    //         async (_message) => this._handleGetWallet(wrap),
-    //       ],
-    //       CREATE_WALLET: [
-    //         guard.isCreateWalletRequest,
-    //         async (_message) => this._handleCreateWallet(wrap),
-    //       ],
-    //       CREATE_CHAIN: [
-    //         guard.isCreateChainRequest,
-    //         async (_message) => this._handleCreateChain(wrap),
-    //       ],
-    //       // GET_BALANCE and SET_DEFAULT_CHAIN do not have explicit guards.
-    //       GET_BALANCE: [
-    //         (message: any): message is any => message.type === 'GET_BALANCE',
-    //         async (_message) => this._handleGetBalance(wrap),
-    //       ],
-    //       SET_DEFAULT_CHAIN: [
-    //         (message: any): message is any =>
-    //           message.type === 'SET_DEFAULT_CHAIN',
-    //         async (message) => this._handleSetDefaultChain(message, wrap),
-    //       ],
-    //     }
-
-    //     const applicationHandlers: Record<string, MessageHandler> = {
-    //       QUERY: [
-    //         guard.isQueryApplicationRequest,
-    //         async (message) =>
-    //           this._handleQueryApplicationRequest(message, wrap),
-    //       ],
-    //       ASSIGNMENT: [
-    //         guard.isAssignmentRequest,
-    //         async (message) => await this._handleAssignment(message, wrap),
-    //       ],
-    //     }
-
-    //     if (portName === 'extension') {
-    //       const handlerTuple = extensionHandlers[messageType]
-    //       if (handlerTuple && handlerTuple[0](message)) {
-    //         await handlerTuple[1](message)
-    //       } else if (message.type === 'PING') {
-    //         await this._handlePing(wrap)
-    //       }
-    //     }
-
-    //     if (portName === 'applications') {
-    //       const handlerTuple = applicationHandlers[messageType]
-    //       if (handlerTuple && handlerTuple[0](message)) {
-    //         await handlerTuple[1](message.message)
-    //       }
-    //     }
-    //   })
-
-    //   port.onDisconnect.addListener(() => {
-    //     this.subscribers.delete(port)
-    //     if (chrome.runtime.lastError) {
-    //       console.log(
-    //         'Port disconnect error:',
-    //         chrome.runtime.lastError.message
-    //       )
-    //     }
-    //   })
-    // })
   }
 
   private async _handlePing(wrap: (data: any, success?: boolean) => void) {
