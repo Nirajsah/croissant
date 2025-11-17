@@ -6,25 +6,34 @@ export const checkWalletExists = (): Promise<boolean> => {
       const db = request.result
 
       try {
+        // Check if the object store exists
         if (!db.objectStoreNames.contains('ldb')) {
-          console.log('Wallet store does not exist.')
           db.close()
-          indexedDB.deleteDatabase('linera')
           resolve(false)
           return
-        } else {
-          resolve(true)
+        }
+
+        const tx = db.transaction('ldb', 'readonly')
+        const store = tx.objectStore('ldb')
+        const countReq = store.count()
+
+        countReq.onsuccess = () => {
+          const count = countReq.result
+          db.close()
+          resolve(count > 0)
+        }
+
+        countReq.onerror = () => {
+          db.close()
+          resolve(false)
         }
       } catch (err) {
-        console.log('Transaction failed:', err)
-        indexedDB.deleteDatabase('linera')
+        db.close()
         resolve(false)
       }
     }
 
     request.onerror = () => {
-      console.error('Failed to open DB')
-      indexedDB.deleteDatabase('linera')
       resolve(false)
     }
   })

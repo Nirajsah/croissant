@@ -14,32 +14,55 @@ export const WalletCard = ({
 }) => {
   const chains = Array.isArray(walletChain) ? walletChain : [walletChain]
   const scrollRef = React.useRef<HTMLDivElement>(null)
-  const [balance, setBalance] = React.useState(0);
-
+  const [balance, setBalance] = React.useState(0)
 
   React.useEffect(() => {
-    ; (async function getBalance() {
-      const bal = await walletApi.getBalances()
-      setBalance(bal)
-    })()
+    let alive = true
+    async function fetchBalance() {
+      try {
+        const bal = await walletApi.getBalances()
+        if (alive) setBalance(bal)
+      } catch (err) {
+        if (alive) setBalance(0)
+      }
+    }
+    fetchBalance()
+    return () => {
+      alive = false
+    }
   }, [])
 
+  // React.useEffect(() => {
+  //   const el = scrollRef.current
+  //   if (!el) return
+
+  //   const onWheel = (e: WheelEvent) => {
+  //     // Let trackpads work naturally
+  //     if (Math.abs(e.deltaX) > 0) return
+
+  //     // For vertical mouse wheel, convert to horizontal
+  //     e.preventDefault()
+  //     el.scrollLeft += e.deltaY
+  //   }
+
+  //   el.addEventListener('wheel', onWheel, { passive: false })
+  //   return () => el.removeEventListener('wheel', onWheel)
+  // }, [])
 
   React.useEffect(() => {
-    const el = scrollRef.current
+    const el: any = scrollRef.current
     if (!el) return
 
-    const onWheel = (e: WheelEvent) => {
-      // Let trackpads work naturally
+    function onWheel(e: WheelEvent) {
       if (Math.abs(e.deltaX) > 0) return
-
-      // For vertical mouse wheel, convert to horizontal
       e.preventDefault()
       el.scrollLeft += e.deltaY
     }
 
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+    return () => {
+      el.removeEventListener('wheel', onWheel, { passive: false })
+    }
   }, [])
 
   const handleCopy = (value: string) => {
@@ -48,13 +71,15 @@ export const WalletCard = ({
 
   return (
     <div className="w-full h-[220px] max-w-[370px]">
-      <div ref={scrollRef}
+      <div
+        ref={scrollRef}
         style={{
           overflowX: 'auto',
           scrollBehavior: 'smooth',
-          overscrollBehavior: 'contain'
+          overscrollBehavior: 'contain',
         }}
-        className="scroll-container flex h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-2 p-2">
+        className="scroll-container flex h-full overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar gap-2 p-2"
+      >
         {chains.map((chain, i) => (
           <div
             key={i}
@@ -75,7 +100,7 @@ export const WalletCard = ({
               <div className="inset-0 flex flex-col justify-between z-10 text-white">
                 <div className="px-6 pt-6">
                   <div className="text-xs text-rose-300">Linera</div>
-                  <div className="text-[40px] font-bold">{balance} LNT</div>
+                  <div className="text-[40px] font-bold">{balance || 0}</div>
                 </div>
                 <div className="flex w-full mt-4 p-2 flex-col justify-between items-start text-xs">
                   <span className="flex items-center gap-2 px-2 py-1 rounded-full text-sm w-full min-w-0">

@@ -32,7 +32,6 @@ export default function HomePage() {
       }
       try {
         const walletData = await walletApi.getWallet()
-        console.log('Wallet should be here', walletData)
 
         if (!walletData) {
           navigate('/set')
@@ -47,7 +46,7 @@ export default function HomePage() {
         )
         if (retryCount < 2) {
           setRetryCount((prev) => prev + 1)
-          timeoutId = setTimeout(fetchWallet, 1000)
+          timeoutId = setTimeout(fetchWallet, 3000)
         } else {
           navigate('/set')
         }
@@ -81,7 +80,11 @@ export default function HomePage() {
       <NavBar />
       {wallet.chains && (
         <div>
-          <WalletCard walletChain={Object.values(chains)} defaultChain={defaultChain} handleSetDefault={handleSetDefault} />
+          <WalletCard
+            walletChain={Object.values(chains)}
+            defaultChain={defaultChain}
+            handleSetDefault={handleSetDefault}
+          />
         </div>
       )}
       <WalletFunction />
