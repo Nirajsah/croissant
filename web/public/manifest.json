@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Croissant 🥐",
   "description": "A wallet for Linera Blockchain",
-  "version": "0.1",
+  "version": "0.2.1",
   "action": {
     "default_title": "Croissant",
     "default_popup": "src/popup/index.html"
