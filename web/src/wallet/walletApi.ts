@@ -1,18 +1,16 @@
 let walletPort: chrome.runtime.Port | null = null
 
-function getWalletPort(): chrome.runtime.Port {
-  function reconnect() {
-    walletPort = chrome.runtime.connect({ name: 'extension' })
-  }
-  if (!walletPort) {
-    walletPort = chrome.runtime.connect({ name: 'extension' })
+function openWalletPort(): chrome.runtime.Port {
+  const port = chrome.runtime.connect({ name: 'extension' })
+  port.onDisconnect.addListener(() => {
+    walletPort = null // Mark the current port as dead so next call creates a new one
+  })
+  return port
+}
 
-    walletPort.onDisconnect.addListener(() => {
-      setTimeout(() => {
-        reconnect()
-      }, 500)
-      walletPort = null
-    })
+function getWalletPort(): chrome.runtime.Port {
+  if (!walletPort) {
+    walletPort = openWalletPort()
   }
   return walletPort
 }

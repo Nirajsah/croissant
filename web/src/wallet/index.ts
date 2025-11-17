@@ -239,7 +239,6 @@ export class Server {
 
   private setupPortConnections() {
     chrome.runtime.onConnect.addListener((port) => {
-      if (this.isUpdatingWallet) return
       if (!['extension', 'applications'].includes(port.name)) return
 
       this.addSubscriber(port)
@@ -250,6 +249,10 @@ export class Server {
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
           this.safePostMessage(port, { requestId, success, data })
+        }
+        if (this.isUpdatingWallet) {
+          wrap('Wallet is updating. Please wait.', false)
+          return
         }
         try {
           await this.routeMessage(port, message, wrap)
@@ -353,10 +356,9 @@ export class Server {
     await WasmManager.init()
     this.wasmInstance = WasmManager.instance
 
+    this.setupPortConnections()
     await this.initWallet()
     await this.initClient()
-
-    this.setupPortConnections()
   }
 
   private async _handlePing(wrap: (data: any, success?: boolean) => void) {
