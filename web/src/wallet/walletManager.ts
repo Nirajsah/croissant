@@ -92,9 +92,9 @@ export class WalletManager {
   async setDefaultChain(chainId: string): Promise<string> {
     try {
       await this.wallet!.setDefault(chainId)
-      this.cleanup()
+      // this.cleanup()
 
-      await this.reInitWallet() // reinitialize wallet after assignment
+      // await this.reInitWallet() // reinitialize wallet after assignment
       return 'Default chain set successfully'
     } catch (error) {
       throw new Error('Failed to set default chain')
@@ -111,9 +111,9 @@ export class WalletManager {
         payload.chainId,
         payload.timestamp
       )
-      this.cleanup()
+      // this.cleanup()
 
-      await this.reInitWallet() // reinitialize wallet after assignment
+      // await this.reInitWallet() // reinitialize wallet after assignment
       return 'Chain assigned successfully'
     } catch (error) {
       throw new Error('Failed to assign')
