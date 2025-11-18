@@ -20,7 +20,7 @@ export class Server {
   private client: ClientManager = ClientManager.instance
   private wallet: WalletManager = WalletManager.instance
 
-  private isUpdatingWallet = false // IMPORTANT: we need this to make sure we are not processing any incoming message when wallet is in updating state
+  // private isUpdatingWallet = false // IMPORTANT: we need this to make sure we are not processing any incoming message when wallet is in updating state
 
   constructor() {}
 
@@ -31,8 +31,6 @@ export class Server {
         this.subscribers.delete(port)
         return false
       }
-
-      console.log('sending message to port', port, message)
 
       port.postMessage(message)
       return true
@@ -248,12 +246,13 @@ export class Server {
 
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
+          console.log(' message, data', message, data)
           this.safePostMessage(port, { requestId, success, data })
         }
-        if (this.isUpdatingWallet) {
+        /* if (this.isUpdatingWallet) {
           wrap('Wallet is updating. Please wait.', false)
           return
-        }
+        } */
         try {
           await this.routeMessage(port, message, wrap)
         } catch (err) {
@@ -294,8 +293,8 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   private async faucetAction(op: OpType): Promise<Result<string>> {
-    // const FAUCET_URL = 'http://localhost:8079'
-    const FAUCET_URL = 'https://faucet.testnet-conway.linera.net/'
+    const FAUCET_URL = 'http://localhost:8079'
+    // const FAUCET_URL = 'https://faucet.testnet-conway.linera.net/'
     const faucet = new wasm.Faucet(FAUCET_URL)
     const handler = this.faucetHandlers[op]
     if (!handler) return { success: false, error: 'Invalid operation' }
@@ -310,12 +309,19 @@ export class Server {
 
   // if wallet exists, initialize client, wallet is consumed here, so we renitialize it
   private async initClient() {
+    console.log(
+      'wallet and signer',
+      this.wallet.getWallet(),
+      this.wallet.getSigner(),
+      this.wasmInstance
+    )
     if (!this.wallet.getWallet() || !this.wallet.getSigner()) {
       return
     }
-    // Clean up any existing instance before reinitializing
-    this.client.cleanup()
 
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    console.log('reiniting client....')
     try {
       // Initialize a fresh one
       await this.client.init(
@@ -418,16 +424,17 @@ export class Server {
     wrap: (data: any, success?: boolean) => void
   ) {
     // set this to make sure we don't process any message at this time
-    this.isUpdatingWallet = true
+    // this.isUpdatingWallet = true
     try {
       const result = await this.wallet.setDefaultChain(message.chain_id)
       // reinitialize client after setting default chain
+      await this.client.cleanup()
       await this.initClient()
       wrap(result)
     } catch (error) {
       console.error(error)
     } finally {
-      this.isUpdatingWallet = false
+      // this.isUpdatingWallet = false
     }
   }
 
@@ -438,17 +445,18 @@ export class Server {
   ) {
     try {
       // set this to make sure we don't process any message at this time
-      this.isUpdatingWallet = true
+      // this.isUpdatingWallet = true
       const { payload } = message.message
 
       const result = await this.wallet.assign(payload) // assign chain in wallet manager, this will also reinitialize wallet
       // reinitialize client after assignment
+      await this.client.cleanup()
       await this.initClient()
       wrap(result)
     } catch (err) {
       wrap(`${err}`, false)
     } finally {
-      this.isUpdatingWallet = false
+      // this.isUpdatingWallet = false
     }
   }
 
@@ -458,7 +466,6 @@ export class Server {
   ) {
     try {
       const result = await this.client.query(message.message)
-      console.log('here is the result', result)
       wrap(result)
     } catch (err) {
       wrap(err, false)

@@ -34,12 +34,17 @@ export class ClientManager {
       throw new Error('Missing wasmInstance, wallet, or signer')
     }
 
+    // if (this.client) {
+    //   console.log('Client already exists, but creating new one anyway')
+    // }
+
     try {
       const client = await new wasmInstance.Client(
         wallet,
         signer,
         skipBlockSync
       )
+
       this.client = client
 
       this.registerNotificationHandler()
@@ -51,7 +56,7 @@ export class ClientManager {
   }
 
   /** Register handler only once */
-  private registerNotificationHandler() {
+  registerNotificationHandler() {
     if (!this.client || this.notificationHandlerRegistered) return
 
     this.client.onNotification((notification: any) => {
@@ -155,14 +160,19 @@ export class ClientManager {
   }
 
   /** Cleanup resources */
-  cleanup() {
+  async cleanup() {
+    console.log('Cleanup called, current client:', this.client)
+
     if (this.client) {
       try {
+        this.client.stop()
+        await new Promise((resolve) => setTimeout(resolve, 150))
         this.client.free()
+        this.client = null
       } catch (err) {
-        console.warn('Error freeing client:', err)
+        console.error('❌ Error during cleanup:', err)
+        this.client = null
       }
-      this.client = null
       this.notificationHandlerRegistered = false
     }
   }

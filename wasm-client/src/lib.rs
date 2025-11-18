@@ -32,7 +32,7 @@ use std::{
     time::Duration,
 };
 
-use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex, stream::StreamExt};
+use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex, select, stream::StreamExt};
 use linera_base::{
     data_types::Timestamp,
     identifiers::{AccountOwner, ApplicationId, ChainId},
@@ -49,7 +49,7 @@ use linera_core::{
 };
 use linera_faucet_client::Faucet;
 use linera_persistent::{self as persistent, Persist, PersistExt};
-use linera_views::store::WithError;
+use linera_views::ViewError;
 use serde::ser::Serialize as _;
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, wasm_bindgen};
@@ -68,8 +68,7 @@ type WebEnvironment =
 
 type JsResult<T> = Result<T, JsError>;
 
-async fn get_storage(
-) -> Result<WebStorage, <linera_views::memory::MemoryDatabase as WithError>::Error> {
+async fn get_storage() -> Result<WebStorage, ViewError> {
     linera_storage::DbStorage::maybe_create_and_connect(
         &linera_views::memory::MemoryStoreConfig {
             max_stream_queries: 1,
@@ -182,6 +181,12 @@ pub const OPTIONS: ClientContextOptions = ClientContextOptions {
     sender_chain_worker_ttl: Duration::from_millis(200),
     grace_period: linera_core::DEFAULT_GRACE_PERIOD,
     max_joined_tasks: 100,
+    max_accepted_latency_ms: linera_core::client::requests_scheduler::MAX_ACCEPTED_LATENCY_MS,
+    cache_ttl_ms: linera_core::client::requests_scheduler::CACHE_TTL_MS,
+    cache_max_size: linera_core::client::requests_scheduler::CACHE_MAX_SIZE,
+    max_request_ttl_ms: linera_core::client::requests_scheduler::MAX_REQUEST_TTL_MS,
+    alpha: linera_core::client::requests_scheduler::ALPHA_SMOOTHING_FACTOR,
+    alternative_peers_retry_delay_ms: linera_core::client::requests_scheduler::STAGGERED_DELAY_MS,
 
     // TODO(linera-protocol#2944): separate these out from the
     // `ClientOptions` struct, since they apply only to the CLI/native
@@ -190,8 +195,8 @@ pub const OPTIONS: ClientContextOptions = ClientContextOptions {
     keystore_path: None,
     with_wallet: None,
     chrome_trace_exporter: false,
-    otel_trace_file: None,
-    otel_exporter_otlp_endpoint: None,
+    chrome_trace_file: None,
+    otlp_exporter_endpoint: None,
 };
 
 #[wasm_bindgen(js_name = Faucet)]
@@ -254,7 +259,7 @@ impl JsFaucet {
             })
             .await??;
 
-        wallet.save_to_storage(false).await?;
+        wallet.save_to_storage(true).await?;
 
         Ok(description.id().to_string())
     }
@@ -465,6 +470,7 @@ pub struct Client {
     // expose concurrency to the browser, which must always run all
     // futures on the global task queue.
     client_context: Arc<AsyncMutex<ClientContext>>,
+    cancellation_token: tokio_util::sync::CancellationToken,
 }
 
 /// The subset of the client API that should be exposed to application
@@ -502,6 +508,7 @@ impl Client {
             .genesis_config()
             .initialize_storage(&mut storage)
             .await?;
+
         // The `Arc` here is useless, but it is required by the `ChainListener` API.
         #[expect(clippy::arc_with_non_send_sync)]
         let client_context = Arc::new(AsyncMutex::new(ClientContext::new(
@@ -523,6 +530,7 @@ impl Client {
         }
 
         let client_context_clone = client_context.clone();
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
         let chain_listener = ChainListener::new(
             ChainListenerConfig {
                 skip_process_inbox,
@@ -530,7 +538,7 @@ impl Client {
             },
             client_context_clone,
             storage,
-            tokio_util::sync::CancellationToken::new(),
+            cancellation_token.clone(),
         )
         .run(true) // Enable background sync
         .await?;
@@ -544,7 +552,15 @@ impl Client {
             .boxed_local(),
         );
         log::info!("Linera Web client successfully initialized");
-        Ok(Self { client_context })
+        Ok(Self {
+            client_context,
+            cancellation_token,
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn stop(&self) {
+        self.cancellation_token.cancel();
     }
 
     /// Assigns a chain to the provided wallet key using only the ChainId (string).
@@ -604,24 +620,97 @@ impl Client {
     #[wasm_bindgen(js_name = onNotification)]
     pub fn on_notification(&self, handler: js_sys::Function) {
         let this = self.clone();
+
         wasm_bindgen_futures::spawn_local(async move {
-            let mut notifications = this
-                .default_chain_client()
-                .await
-                .unwrap()
-                .subscribe()
-                .unwrap();
-            while let Some(notification) = notifications.next().await {
-                tracing::debug!("received notification: {notification:?}");
-                handler
-                    .call1(
-                        &JsValue::null(),
-                        &serde_wasm_bindgen::to_value(&notification).unwrap(),
-                    )
-                    .unwrap();
+            // Get default chain client and subscribe
+            let (_client, mut notifications) = {
+                let guard = this.client_context.lock().await;
+                let chain_id = match guard.wallet().default_chain() {
+                    Some(id) => id,
+                    None => {
+                        tracing::error!("No default chain set");
+                        return;
+                    }
+                };
+
+                let client = guard.make_chain_client(chain_id);
+                let notifications = match client.subscribe() {
+                    Ok(stream) => stream,
+                    Err(e) => {
+                        tracing::error!("Failed to subscribe to notifications: {}", e);
+                        return;
+                    }
+                };
+
+                (client, notifications)
+            };
+
+            // Listen for notifications until cancelled
+            loop {
+                select! {
+                    notification = notifications.next().fuse() => {
+                        match notification {
+                            Some(n) => {
+                                tracing::debug!("received notification: {n:?}");
+                                if let Ok(js_value) = serde_wasm_bindgen::to_value(&n) {
+                                    if let Err(e) = handler.call1(&JsValue::null(), &js_value) {
+                                        tracing::warn!("Notification handler callback failed: {:?}", e);
+                                    }
+                                }
+                            }
+                            None => {
+                                tracing::info!("Notification stream ended");
+                                break;
+                            }
+                        }
+                    }
+                    _ = this.cancellation_token.cancelled().fuse() => {
+                        tracing::info!("🧟 Notification handler cancelled - zombie destroyed!");
+                        break;
+                    }
+                }
             }
         });
     }
+
+    /* #[wasm_bindgen(js_name = onNotification)]
+    pub fn on_notification(&self, handler: js_sys::Function) {
+        let client_context = self.client_context.clone();
+        let cancellation_token = self.cancellation_token.clone();
+
+        wasm_bindgen_futures::spawn_local(async move {
+            loop {
+                // Get current default chain
+                let chain_client = {
+                    let guard = client_context.lock().await;
+                    let chain_id = guard.wallet().default_chain().expect("No default chain");
+                    guard.make_chain_client(chain_id)
+                };
+
+                // Subscribe to it
+                let Ok(mut notifications) = chain_client.subscribe() else {
+                    tracing::warn!("Failed to subscribe to notifications");
+                    break;
+                };
+
+                // Listen until cancelled
+                loop {
+                    tokio::select! {
+                        Some(notification) = notifications.next() => {
+                            tracing::debug!("received notification: {notification:?}");
+                            if let Ok(js_value) = serde_wasm_bindgen::to_value(&notification) {
+                                let _ = handler.call1(&JsValue::null(), &js_value);
+                            }
+                        }
+                        _ = cancellation_token.cancelled() => {
+                            tracing::info!("Notification handler stopped");
+                            return;  // Exit the entire task
+                        }
+                    }
+                }
+            }
+        });
+    } */
 
     async fn default_chain_client(&self) -> Result<ChainClient, JsError> {
         let client_context = self.client_context.lock().await;
@@ -809,14 +898,24 @@ impl Application {
     pub async fn query(&self, query: &str) -> JsResult<String> {
         let chain_client = self.client.default_chain_client().await?;
 
+        tracing::info!("we are trying to make query: {:?}", query);
+        /* let block_hash = if let Some(hash) = block_hash {
+            Some(hash.as_str().parse()?)
+        } else {
+            None
+        }; */
+
         let linera_execution::QueryOutcome {
             response: linera_execution::QueryResponse::User(response),
             operations,
         } = chain_client
-            .query_application(linera_execution::Query::User {
-                application_id: self.id,
-                bytes: query.as_bytes().to_vec(),
-            })
+            .query_application(
+                linera_execution::Query::User {
+                    application_id: self.id,
+                    bytes: query.as_bytes().to_vec(),
+                },
+                None,
+            )
             .await?
         else {
             panic!("system response to user query")
