@@ -665,52 +665,13 @@ impl Client {
                         }
                     }
                     _ = this.cancellation_token.cancelled().fuse() => {
-                        tracing::info!("🧟 Notification handler cancelled - zombie destroyed!");
+                        tracing::info!("Notification handler cancelled - task destroyed!");
                         break;
                     }
                 }
             }
         });
     }
-
-    /* #[wasm_bindgen(js_name = onNotification)]
-    pub fn on_notification(&self, handler: js_sys::Function) {
-        let client_context = self.client_context.clone();
-        let cancellation_token = self.cancellation_token.clone();
-
-        wasm_bindgen_futures::spawn_local(async move {
-            loop {
-                // Get current default chain
-                let chain_client = {
-                    let guard = client_context.lock().await;
-                    let chain_id = guard.wallet().default_chain().expect("No default chain");
-                    guard.make_chain_client(chain_id)
-                };
-
-                // Subscribe to it
-                let Ok(mut notifications) = chain_client.subscribe() else {
-                    tracing::warn!("Failed to subscribe to notifications");
-                    break;
-                };
-
-                // Listen until cancelled
-                loop {
-                    tokio::select! {
-                        Some(notification) = notifications.next() => {
-                            tracing::debug!("received notification: {notification:?}");
-                            if let Ok(js_value) = serde_wasm_bindgen::to_value(&notification) {
-                                let _ = handler.call1(&JsValue::null(), &js_value);
-                            }
-                        }
-                        _ = cancellation_token.cancelled() => {
-                            tracing::info!("Notification handler stopped");
-                            return;  // Exit the entire task
-                        }
-                    }
-                }
-            }
-        });
-    } */
 
     async fn default_chain_client(&self) -> Result<ChainClient, JsError> {
         let client_context = self.client_context.lock().await;
