@@ -1,3 +1,25 @@
 {
-    "files": ["dist/linera_web.d.ts"]
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.js",
+        "src/**/*.mjs"
+    ],
+    "compilerOptions": {
+        "baseUrl": "./",
+        "target": "es2022",
+        "module": "Node16",
+        "moduleResolution": "node16",
+        "sourceMap": true,
+        "outDir": "dist/",
+        "rootDir": "src",
+        "declaration": true,
+        "paths": {
+            "web-thread:wasm-shim": [
+                "./src/wasm/index.js"
+            ]
+        }
+    },
+    "tsc-alias": {
+        "resolveFullPaths": true
+    },
 }

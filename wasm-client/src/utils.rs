@@ -82,6 +82,7 @@ pub trait WalletStorage {
     async fn write_fields(&self, fields: Vec<(String, JsValue)>) -> Result<(), JsError>;
 }
 
+#[derive(Clone)]
 pub struct IndexedDbStorage {
     db_name: String,
     store_name: String,

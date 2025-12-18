@@ -21,16 +21,22 @@ js-sys = "0.3"
 log = "0.4.21"
 nonzero_lit = "0.1.2"
 num-traits = "0.2.19"
-serde = "=1.0.205"
+serde = "1.0.205"
 serde-wasm-bindgen = "0.6.5"
 tokio-util = "0.7.15"
-tracing = "0.1.40"
-wasm-bindgen-futures = { version = "0.4.51" }
+wasm-bindgen-futures = { version = "0.4.50" }
 wasm-bindgen = { version = "0.2.100" }
 serde_json = "1.0.120"
 async-trait = "0.1.89"
 rexie = "0.6.2"
+tracing = { version = "0.1.40", features = ["release_max_level_debug"] }
+tracing-web = "0.1.3"
+tsify = "0.5.5"
+tokio = "1.48.0"
 
+[dependencies.tracing-subscriber]
+features = ["ansi", "fmt", "std"]
+version = "0.3.22"
 
 [dependencies.web-sys]
 version = "0.3"

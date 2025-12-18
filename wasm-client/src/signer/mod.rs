@@ -2,19 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! This module contains various implementation of the [`Signer`] trait usable in the browser.
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
 
 use linera_base::{
-    crypto::{AccountSignature, CryptoHash, EvmSignature, Signer},
+    crypto::{AccountSignature, CryptoHash},
     identifiers::AccountOwner,
 };
 use wasm_bindgen::prelude::*;
 use web_sys::wasm_bindgen;
 
+// TODO(#5150) remove this in favour of passing up arbitrary `JsValue` errors
 #[repr(u8)]
 #[wasm_bindgen(js_name = "SignerError")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum JsSignerError {
+pub enum Error {
     MissingKey = 0,
     SigningError = 1,
     PublicKeyParse = 2,
@@ -24,67 +25,67 @@ pub enum JsSignerError {
     Unknown = 9,
 }
 
-impl Display for JsSignerError {
+impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            JsSignerError::MissingKey => write!(f, "No key found for the given owner"),
-            JsSignerError::SigningError => write!(f, "Error signing the value"),
-            JsSignerError::PublicKeyParse => write!(f, "Error parsing the public key"),
-            JsSignerError::JsConversion => write!(f, "Error converting JS value"),
-            JsSignerError::UnexpectedSignatureFormat => {
+            Error::MissingKey => write!(f, "No key found for the given owner"),
+            Error::SigningError => write!(f, "Error signing the value"),
+            Error::PublicKeyParse => write!(f, "Error parsing the public key"),
+            Error::JsConversion => write!(f, "Error converting JS value"),
+            Error::UnexpectedSignatureFormat => {
                 write!(f, "Unexpected signature format received from JS")
             }
-            JsSignerError::InvalidAccountOwnerType => {
+            Error::InvalidAccountOwnerType => {
                 write!(
                     f,
                     "Invalid account owner type provided. Expected AccountOwner::Address20"
                 )
             }
-            JsSignerError::Unknown => write!(f, "An unknown error occurred"),
+            Error::Unknown => write!(f, "An unknown error occurred"),
         }
     }
 }
 
-impl From<JsValue> for JsSignerError {
+impl From<JsValue> for Error {
     fn from(value: JsValue) -> Self {
         match value.as_f64().and_then(num_traits::cast) {
-            Some(0u8) => JsSignerError::MissingKey,
-            Some(1) => JsSignerError::SigningError,
-            Some(2) => JsSignerError::PublicKeyParse,
-            Some(3) => JsSignerError::JsConversion,
-            Some(4) => JsSignerError::UnexpectedSignatureFormat,
-            Some(5) => JsSignerError::InvalidAccountOwnerType,
-            _ => JsSignerError::Unknown,
+            Some(0u8) => Error::MissingKey,
+            Some(1) => Error::SigningError,
+            Some(2) => Error::PublicKeyParse,
+            Some(3) => Error::JsConversion,
+            Some(4) => Error::UnexpectedSignatureFormat,
+            Some(5) => Error::InvalidAccountOwnerType,
+            _ => Error::Unknown,
         }
     }
 }
 
-impl std::error::Error for JsSignerError {}
+impl std::error::Error for Error {}
+
+#[wasm_bindgen(typescript_custom_section)]
+const _: &str = r#"import type { Signer } from '../signer/index.js';"#;
 
 #[wasm_bindgen]
 extern "C" {
-    // We refer to the interface defined above.
     #[wasm_bindgen(typescript_type = "Signer")]
-    pub type JsSigner;
+    pub type Signer;
 
     #[wasm_bindgen(catch, method)]
-    async fn sign(this: &JsSigner, owner: JsValue, value: Vec<u8>) -> Result<JsValue, JsValue>;
+    async fn sign(
+        this: &Signer,
+        owner: AccountOwner,
+        value: Vec<u8>,
+    ) -> Result<js_sys::JsString, JsValue>;
 
     #[wasm_bindgen(catch, method, js_name = "containsKey")]
-    async fn contains_key(this: &JsSigner, owner: JsValue) -> Result<JsValue, JsValue>;
+    async fn contains_key(this: &Signer, owner: AccountOwner) -> Result<JsValue, JsValue>;
 }
 
-impl Signer for JsSigner {
-    type Error = JsSignerError;
+impl linera_base::crypto::Signer for Signer {
+    type Error = Error;
 
     async fn contains_key(&self, owner: &AccountOwner) -> Result<bool, Self::Error> {
-        let js_owner = serde_wasm_bindgen::to_value(owner).unwrap();
-        let js_bool = self
-            .contains_key(js_owner)
-            .await
-            .map_err(JsSignerError::from)?;
-
-        serde_wasm_bindgen::from_value(js_bool).map_err(|_| JsSignerError::JsConversion)
+        Ok(self.contains_key(*owner).await?.is_truthy())
     }
 
     async fn sign(
@@ -92,22 +93,21 @@ impl Signer for JsSigner {
         owner: &AccountOwner,
         value: &CryptoHash,
     ) -> Result<AccountSignature, Self::Error> {
-        let address = match owner {
-            AccountOwner::Address20(address) => *address,
-            _ => return Err(JsSignerError::InvalidAccountOwnerType),
-        };
-        let js_owner = JsValue::from_str(&owner.to_string());
-        // Pass CryptoHash without serializing as that adds bytes
-        // to the serialized value which we don't want for signing.
-        let js_cryptohash = value.as_bytes().0.to_vec();
-        let js_signature = self
-            .sign(js_owner, js_cryptohash)
-            .await
-            .map_err(JsSignerError::from)?
-            .as_string()
-            .ok_or(JsSignerError::JsConversion)?;
-        let signature = EvmSignature::from_str(&js_signature)
-            .map_err(|_| JsSignerError::UnexpectedSignatureFormat)?;
-        Ok(AccountSignature::EvmSecp256k1 { signature, address })
+        Ok(AccountSignature::EvmSecp256k1 {
+            signature: String::from(
+                self
+                    // Pass CryptoHash without serializing as that adds bytes
+                    // to the serialized value which we don't want for signing.
+                    .sign(*owner, value.as_bytes().0.to_vec())
+                    .await?,
+            )
+            .parse()
+            .map_err(|_| Error::UnexpectedSignatureFormat)?,
+            address: if let AccountOwner::Address20(address) = owner {
+                *address
+            } else {
+                return Err(Error::InvalidAccountOwnerType);
+            },
+        })
     }
 }

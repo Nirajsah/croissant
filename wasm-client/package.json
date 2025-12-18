@@ -5,8 +5,8 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "dist/linera_web.js",
-  "types": "dist/linera_web.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
@@ -37,6 +37,7 @@
   "devDependencies": {
     "prettier": "3.5.3",
     "typedoc": "^0.28.5",
+    "tsc-alias": "^1.8.16",
     "typedoc-plugin-markdown": "^4.7.0"
   }
 }
