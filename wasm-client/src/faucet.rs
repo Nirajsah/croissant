@@ -6,9 +6,12 @@ use linera_core::wallet;
 use wasm_bindgen::prelude::*;
 use web_sys::wasm_bindgen;
 
-use crate::{utils::IndexedDbStorage, wallet::PersistentWallet};
+use crate::{
+    utils::IndexedDbStorage,
+    wallet::{PersistentWallet, Wallet},
+};
 
-use super::{JsResult, Wallet};
+use super::JsResult;
 
 #[wasm_bindgen]
 pub struct Faucet(linera_faucet_client::Faucet);

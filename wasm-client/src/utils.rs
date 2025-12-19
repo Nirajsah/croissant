@@ -2,16 +2,6 @@ use async_trait::async_trait;
 use rexie::{ObjectStore, Rexie, TransactionMode};
 use wasm_bindgen::{prelude::wasm_bindgen, JsError, JsValue};
 
-// /// UserData will be sent to the wallet client
-// #[derive(Clone, Deserialize, Serialize)]
-// pub struct UserData {
-//     pub chains: BTreeMap<ChainId, UserChain>,
-//     pub default_chain: ChainId,
-//     /*
-//      * 1. Balance needs to sent as well.
-//      */
-// }
-
 /**
  * Methods to Encrypt and Decrypt the wallet
 */

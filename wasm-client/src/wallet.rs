@@ -1,88 +1,19 @@
 // Copyright (c) Zefchain Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use linera_base::identifiers::ChainId;
 use linera_client::config::GenesisConfig;
 use linera_core::wallet;
+use linera_core::wallet::Chain;
 use wasm_bindgen::prelude::*;
 use web_sys::wasm_bindgen;
 
 use crate::utils::{IndexedDbStorage, WalletStorage};
 
+#[allow(unused_imports)]
 use super::JsResult;
-
-//// A wallet that stores the user's chains and keys in memory.
-
-/* impl Deref for PersistentWallet {
-    type Target = Wallet;
-
-    fn deref(&self) -> &Self::Target {
-        &self.wallet
-    }
-}
-
-use std::error::Error as StdError;
-use std::fmt;
-
-#[derive(Debug)]
-pub struct WasmPersistError {
-    inner: String,
-}
-
-impl WasmPersistError {
-    pub fn new(msg: impl Into<String>) -> Self {
-        Self { inner: msg.into() }
-    }
-}
-
-impl fmt::Display for WasmPersistError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner)
-    }
-}
-
-impl StdError for WasmPersistError {}
-
-// These are safe in single-threaded WASM
-unsafe impl Send for WasmPersistError {}
-unsafe impl Sync for WasmPersistError {}
-
-// Convert from JsError
-impl From<JsError> for WasmPersistError {
-    fn from(e: JsError) -> Self {
-        Self::new(format!("{:?}", e))
-    }
-}
-
-impl From<serde_json::Error> for WasmPersistError {
-    fn from(e: serde_json::Error) -> Self {
-        Self::new(e.to_string())
-    }
-}
-
-// Implement Persist trait
-impl Persist for PersistentWallet {
-    type Error = WasmPersistError;
-
-    fn as_mut(&mut self) -> &mut Self::Target {
-        self.wallet.as_mut()
-    }
-
-    async fn persist(&mut self) -> Result<(), Self::Error> {
-        // Save to IndexedDB
-        self.save_to_storage(false)
-            .await
-            .map_err(|e| JsError::new(&format!("Failed to persist wallet: {:?}", e)))?;
-
-        Ok(())
-    }
-
-    fn into_value(self) -> Self::Target {
-        self.wallet.into_value()
-    }
-} */
 
 #[wasm_bindgen(js_name = "Wallet")]
 #[derive(Clone)]
@@ -99,7 +30,7 @@ impl PersistentWallet {
 
 #[wasm_bindgen(js_class = "Wallet")]
 impl PersistentWallet {
-    /* /// Attempts to read the wallet from persistent storage.
+    /// Attempts to read the wallet from persistent storage.
     ///
     /// # Errors
     /// If storage is inaccessible.
@@ -120,7 +51,7 @@ impl PersistentWallet {
         };
 
         // Chains: stored as JS Map - use serde_wasm_bindgen directly
-        let chains: BTreeMap<ChainId, UserChain> = serde_wasm_bindgen::from_value(chains_val)
+        let chains: HashMap<ChainId, Chain> = serde_wasm_bindgen::from_value(chains_val)
             .map_err(|e| JsError::new(&format!("Failed to deserialize chains: {e}")))?;
 
         // Genesis: stored as JSON string - parse it first
@@ -132,7 +63,7 @@ impl PersistentWallet {
                 .map_err(|e| JsError::new(&format!("Failed to deserialize genesis: {e}")))?
         };
 
-        // Default: stored as plain string (chain ID) or null
+        // Default: stored as plain string (chain ID) or null, only null when wallet is new, no chain exists
         let default: Option<ChainId> = if let Some(ref val) = default_result {
             if val.is_null() || val.is_undefined() {
                 None
@@ -143,26 +74,26 @@ impl PersistentWallet {
                         .map_err(|e| JsError::new(&format!("Failed to parse chain ID: {e}")))?,
                 )
             } else {
-                // Try deserializing as object
                 serde_wasm_bindgen::from_value(val.clone()).ok()
             }
         } else {
             None
         };
 
-        // Construct the Wallet struct manually from individual fields
-        let mut wallet = Wallet::new(genesis_config);
+        let mut memory = wallet::Memory::default();
+        memory.extend(chains.iter().map(|(id, chain)| (*id, chain.clone())));
 
-        wallet.chains = chains;
-        wallet.default = default;
+        let wallet = Wallet {
+            chains: Rc::new(memory),
+            default,
+            genesis_config,
+        };
+        let persistent_wallet = PersistentWallet::new(wallet, storage);
 
-        let memory_wallet = persistent::Memory::new(wallet);
-
-        let p = PersistentWallet::new(memory_wallet, storage);
-
-        Ok(Some(p))
+        Ok(Some(persistent_wallet))
     }
 
+    /*
     /// This methods returns the Wallet stored in string format, that could be parsed into json.
     #[wasm_bindgen(js_name = "readJsWallet")]
     pub async fn read_js_wallet() -> Result<String, JsError> {

@@ -25,7 +25,6 @@ use std::{rc::Rc, sync::Arc};
 use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex};
 use linera_base::identifiers::ChainId;
 use linera_client::chain_listener::{ChainListener, ClientContext as _};
-use tracing::instrument::WithSubscriber;
 use wallet::PersistentWallet;
 use wasm_bindgen::prelude::*;
 use web_sys::wasm_bindgen;
@@ -40,7 +39,6 @@ pub use signer::Signer;
 pub mod storage;
 pub use storage::Storage;
 pub mod wallet;
-pub use wallet::Wallet;
 
 pub type Network = linera_rpc::node_provider::NodeProvider;
 pub type Environment =
@@ -93,25 +91,6 @@ impl Client {
         )
         .await?;
 
-        /* {
-            let chain_ids: Vec<_> = client.wallet().chain_ids();
-            for chain_id in chain_ids {
-                tracing::info!("Updating chain in wallet: {:?}", chain_id);
-                let chain_client = client.make_chain_client(chain_id).await?;
-                chain_client.synchronize_from_validators().await?;
-
-                w.save_to_storage(true).await?;
-
-                // Extract chain data
-                // let chain_info = chain_client.await?;
-
-                // tracing::info!("here is the chain_info: {:?}", chain_info);
-
-                // UPDATE specific chain in PersistentWallet's IndexedDB
-                // w.update_chain(chain_id, linera_chain).await?;
-            }
-        } */
-
         // The `Arc` here is useless, but it is required by the `ChainListener` API.
         #[expect(clippy::arc_with_non_send_sync)]
         let client = Arc::new(AsyncMutex::new(client));
@@ -145,36 +124,26 @@ impl Client {
     }
 
     /// Connect to a chain on the Linera network.
-    ///
+    /// If no chain is provided, Default chain is used
     /// # Errors
     ///
     /// If the wallet could not be read or chain synchronization fails.
     #[wasm_bindgen]
-    pub async fn chain(&self, chain: ChainId) -> JsResult<Chain> {
-        let ctx = self.client_context.lock().await; // Lock the client context
-        let chain_client = ctx.make_chain_client(chain).await?;
+    pub async fn chain(&self, chain: Option<ChainId>) -> JsResult<Chain> {
+        let mut ctx = self.client_context.lock().await; // Lock the client context
+        let chain_id = chain.unwrap_or_else(|| ctx.default_chain());
+        let chain_client = ctx.make_chain_client(chain_id).await?;
 
         chain_client.synchronize_from_validators().await?;
+        ctx.update_wallet(&chain_client).await?;
 
-        // ctx.update_wallet(&chain_client).await?; // lets try without this for now,
-        // let d = ctx.wallet().get(chain);
-        self.persistent.save_to_storage(true).await?;
-
+        self.persistent.save_to_storage(false).await?;
         drop(ctx);
-        // Step 4: Create Chain struct
+
         let chain = Chain {
             chain_client,
             client: self.clone(),
         };
-
-        /* let chain = Chain {
-            chain_client: self.0.lock().await.make_chain_client(chain).await?,
-            client: self.clone(),
-        }; */
-
-        // CRITICAL: Synchronize all chains before starting listener
-
-        // chain.chain_client.synchronize_from_validators().await?;
         Ok(chain)
     }
 }
