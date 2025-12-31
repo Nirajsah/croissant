@@ -9,17 +9,12 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
   },
-  build: {
-    rollupOptions: {
-      external: ['@linera/client'],
-    },
-  },
   esbuild: {
     supported: {
       'top-level-await': true,
     },
   },
   optimizeDeps: {
-    exclude: ['@linera/client'],
+    exclude: ['@linera/wasm-client'],
   },
 })

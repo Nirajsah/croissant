@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Linera | Counter</title>
+    <link href="/style.css" rel="stylesheet" />
+    <link href="/icon.png" rel="icon" />
+    <style type="text/css">
+      .ui {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .ui .counter {
+        font-size: 1.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      if (!window.linera) console.log('not found')
+      const incrementButton = document.getElementById('increment-btn')
+
+      // window.linera.on('notification', (notification) => {
+      //   console.log(notification)
+      //   window.linera
+      //     .request({
+      //       type: 'QUERY',
+      //       applicationId:
+      //         'd4d8cfb6a489826de168465fb338e5b0bcce3f1c2e660ea466c4871b96650e8c',
+      //       query: '{ "query": "query { value }" }',
+      //     })
+      //     .then((res) => {
+      //       console.log(res)
+      //     })
+      // })
+
+      incrementButton.addEventListener('click', async (e) => {
+        e.preventDefault()
+        const res = await window.linera.request({
+          type: 'QUERY',
+          applicationId:
+            '79256557d59c707f3a4788cbb19a3d798a20f9eb5e8a1817b5e185123a3796e0',
+          query: '{ "query": "query { value }" }',
+          // export function timer() {
+          //   return request(`{ "query": "query { timer { white black } }" }`)
+          // }
+        })
+        console.log('res', res)
+      })
+    </script>
+    <button id="increment-btn">Click me!</button>
+  </body>
+</html>

@@ -93,7 +93,6 @@ impl PersistentWallet {
         Ok(Some(persistent_wallet))
     }
 
-    /*
     /// This methods returns the Wallet stored in string format, that could be parsed into json.
     #[wasm_bindgen(js_name = "readJsWallet")]
     pub async fn read_js_wallet() -> Result<String, JsError> {
@@ -126,6 +125,7 @@ impl PersistentWallet {
         Ok(combined_str)
     }
 
+    /*
     /// Takes wallet in string format parses it and updates the Store
     #[wasm_bindgen(js_name = "setJsWallet")]
     pub async fn set_js_wallet(wallet_json: &str) -> Result<PersistentWallet, JsError> {
@@ -159,61 +159,6 @@ impl PersistentWallet {
         let result = self.storage.write_fields(fields).await;
         result
     }
-
-    /* #[wasm_bindgen(js_name = assignChain)]
-    pub async fn assign_chain(
-        &mut self,
-        owner: JsValue,
-        chain_id: String,
-        timestamp: JsValue,
-    ) -> Result<(), JsError> {
-        use linera_base::identifiers::{AccountOwner, ChainId};
-        use std::str::FromStr;
-
-        // Parse inputs
-        let account_owner: AccountOwner =
-            serde_wasm_bindgen::from_value(owner).map_err(|e| JsError::new(&format!("{:?}", e)))?;
-        let chain_id = ChainId::from_str(&chain_id)
-            .map_err(|e| JsError::new(&format!("Invalid ChainId: {:?}", e)))?;
-        let timestamp: Timestamp = serde_wasm_bindgen::from_value(timestamp)
-            .map_err(|e| JsError::new(&format!("{:?}", e)))?;
-
-        // Persist assignment to the wallet: timestamp and epoch are taken from description.
-        self.wallet
-            .mutate(|w| w.assign_new_chain_to_owner(account_owner, chain_id, timestamp))
-            .await
-            .map_err(|e| JsError::new(&format!("Persistence error: {:?}", e)))?
-            .map_err(|e| JsError::new(&format!("Assign error: {:?}", e)))?;
-
-        self.wallet
-            .mutate(|w| w.set_default_chain(chain_id))
-            .await
-            .map_err(|e| JsError::new(&format!("Persistence error: {:?}", e)))?
-            .map_err(|e| JsError::new(&format!("default chain update error: {:?}", e)))?;
-
-        self.save_to_storage(false)
-            .await
-            .expect("failed to save wallet after assign");
-
-        Ok(())
-    } */
-
-    /* /// Use to update default chain with new chain
-    #[wasm_bindgen(js_name = setDefault)]
-    pub async fn set_default_chain(&mut self, chain_id: String) -> JsResult<()> {
-        let chain_id = ChainId::from_str(&chain_id).unwrap();
-        self.wallet
-            .mutate(|w| w.set_default_chain(chain_id))
-            .await
-            .map_err(|e| JsError::new(&format!("Persistence error: {:?}", e)))?
-            .map_err(|e| JsError::new(&format!("Assign error: {:?}", e)))?;
-
-        self.save_to_storage(false)
-            .await
-            .expect("failed to set default chain");
-
-        Ok(())
-    } */
 }
 
 /// A wallet that stores the user's chains and keys in memory.

@@ -1,3 +1,4 @@
 packages:
   - wasm-client
   - web
+  - test

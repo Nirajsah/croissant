@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use futures::stream::StreamExt;
+use futures::stream::{AbortHandle, Abortable, StreamExt};
 use linera_base::identifiers::AccountOwner;
 use linera_client::chain_listener::ClientContext as _;
 use linera_core::{
@@ -42,6 +42,19 @@ pub struct AddOwnerOptions {
 }
 
 #[wasm_bindgen]
+pub struct NotificationHandle {
+    abort_handle: AbortHandle,
+}
+
+#[wasm_bindgen]
+impl NotificationHandle {
+    #[wasm_bindgen(js_name = unsubscribe)]
+    pub fn unsubscribe(&mut self) {
+        self.abort_handle.abort();
+    }
+}
+
+#[wasm_bindgen]
 impl Chain {
     /// Sets a callback to be called when a notification is received
     /// from the network.
@@ -52,20 +65,43 @@ impl Chain {
     /// # Panics
     /// If the handler function fails.
     #[wasm_bindgen(js_name = onNotification)]
-    pub fn on_notification(&self, handler: js_sys::Function) -> JsResult<()> {
+    pub fn on_notification(&self, handler: js_sys::Function) -> JsResult<NotificationHandle> {
         let mut notifications = self.chain_client.subscribe()?;
+
+        let (abort_handle, abort_reg) = AbortHandle::new_pair();
+
+        // wasm_bindgen_futures::spawn_local(async move {
+        //     while let Some(notification) = notifications.next().await {
+        //         tracing::debug!("received notification: {notification:?}");
+        //         handler
+        //             .call1(
+        //                 &JsValue::null(),
+        //                 &serde_wasm_bindgen::to_value(&notification).unwrap(),
+        //             )
+        //             .unwrap_throw();
+        //     }
+        // });
+
         wasm_bindgen_futures::spawn_local(async move {
-            while let Some(notification) = notifications.next().await {
-                tracing::debug!("received notification: {notification:?}");
-                handler
-                    .call1(
-                        &JsValue::null(),
-                        &serde_wasm_bindgen::to_value(&notification).unwrap(),
-                    )
-                    .unwrap_throw();
-            }
+            let fut = async move {
+                while let Some(notification) = notifications.next().await {
+                    handler
+                        .call1(
+                            &JsValue::null(),
+                            &serde_wasm_bindgen::to_value(&notification).unwrap(),
+                        )
+                        .unwrap_throw();
+                }
+            };
+
+            let _ = Abortable::new(fut, abort_reg).await;
+            // when `Abortable` resolves due to abort:
+            //   - loop stops
+            //   - `notifications` goes out of scope
+            //   - pinned boxed stream dropped
+            //   - backend unsubscribed on next send
         });
-        Ok(())
+        Ok(NotificationHandle { abort_handle })
     }
 
     /// Transfers funds from one account to another.

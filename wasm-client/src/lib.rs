@@ -23,7 +23,7 @@ key directly in memory and uses it to sign.
 use std::{rc::Rc, sync::Arc};
 
 use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex};
-use linera_base::identifiers::ChainId;
+use linera_base::identifiers::{AccountOwner, ChainId};
 use linera_client::chain_listener::{ChainListener, ClientContext as _};
 use wallet::PersistentWallet;
 use wasm_bindgen::prelude::*;
@@ -123,6 +123,49 @@ impl Client {
         })
     }
 
+    #[wasm_bindgen(js_name = "assignAndSetDefault")]
+    pub async fn assign_and_set_default(
+        &self,
+        chain_id: ChainId,
+        owner: AccountOwner,
+    ) -> JsResult<Chain> {
+        let mut ctx = self.client_context.lock().await;
+        ctx.assign_new_chain_to_key(chain_id, owner).await?;
+
+        let chain_client = ctx.make_chain_client(chain_id).await?;
+        chain_client.synchronize_from_validators().await?;
+        ctx.update_wallet(&chain_client).await?;
+        self.persistent.save_to_storage(false).await?;
+
+        drop(ctx);
+
+        let chain = Chain {
+            chain_client,
+            client: self.clone(),
+        };
+        Ok(chain)
+    }
+
+    /// Assigns a new chain and returns the ChainClient for use
+    #[wasm_bindgen(js_name = "assignChain")]
+    pub async fn assign_and_use(&self, chain_id: ChainId, owner: AccountOwner) -> JsResult<Chain> {
+        let mut ctx = self.client_context.lock().await;
+        ctx.assign_new_chain_to_key(chain_id, owner).await?;
+
+        let chain_client = ctx.make_chain_client(chain_id).await?;
+        chain_client.synchronize_from_validators().await?;
+        ctx.update_wallet(&chain_client).await?;
+
+        self.persistent.save_to_storage(false).await?;
+        drop(ctx);
+
+        let chain = Chain {
+            chain_client,
+            client: self.clone(),
+        };
+        Ok(chain)
+    }
+
     /// Connect to a chain on the Linera network.
     /// If no chain is provided, Default chain is used
     /// # Errors
@@ -130,7 +173,7 @@ impl Client {
     /// If the wallet could not be read or chain synchronization fails.
     #[wasm_bindgen]
     pub async fn chain(&self, chain: Option<ChainId>) -> JsResult<Chain> {
-        let mut ctx = self.client_context.lock().await; // Lock the client context
+        let mut ctx = self.client_context.lock().await;
         let chain_id = chain.unwrap_or_else(|| ctx.default_chain());
         let chain_client = ctx.make_chain_client(chain_id).await?;
 

@@ -30,7 +30,7 @@ export class WalletManager {
     if (!this.wasmInstance && !_wallet) {
       throw new Error('Missing wasmInstance or wallet')
     }
-    await this.wasmInstance!.Wallet.setJsWallet(_wallet) // let the load() handle setting this.wallet.
+    // await this.wasmInstance!.Wallet.setJsWallet(_wallet) // let the load() handle setting this.wallet.
     return 'Wallet set successfully'
   }
 
@@ -56,7 +56,8 @@ export class WalletManager {
 
   async getJsWallet(): Promise<string> {
     try {
-      const wallet = await this.wasmInstance!.Wallet.readJsWallet()
+      // const wallet = await this.wasmInstance!.Wallet.readJsWallet()
+      const wallet = 'ajigoer'
       return wallet
     } catch (error) {
       throw new Error('Failed to read wallet')
@@ -93,7 +94,7 @@ export class WalletManager {
     try {
       await this.wallet!.setDefault(chainId)
 
-      await this.cleanup()     
+      await this.cleanup()
 
       await this.reInitWallet() // reinitialize wallet after assignment
       return 'Default chain set successfully'
@@ -130,14 +131,14 @@ export class WalletManager {
   }
 
   cleanup() {
-    console.log("cleanup was called for wallet", this.wallet)
+    console.log('cleanup was called for wallet', this.wallet)
     try {
       this.wallet?.free()
-    } catch(e) {
-      console.error("failed to free wallet", e)
+    } catch (e) {
+      console.error('failed to free wallet', e)
     }
 
-    console.log("cleanup was called after for wallet", this.wallet)
+    console.log('cleanup was called after for wallet', this.wallet)
     this.wallet = null
   }
 }

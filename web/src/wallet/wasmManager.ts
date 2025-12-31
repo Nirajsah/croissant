@@ -10,7 +10,7 @@ export class WasmManager {
     if (this.initialized && this.wasm) return
 
     try {
-      await wasm.default()
+      await wasm.initialize()
 
       this.wasm = wasm
       this.initialized = true

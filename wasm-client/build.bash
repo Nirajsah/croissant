@@ -41,3 +41,4 @@ rm -rf src/wasm
 pnpm exec tsc
 pnpm exec tsc-alias
 
+cp -r dist/* ../../microchess/frontend/src/croissant/wasm/

@@ -12,5 +12,8 @@
   "description": "",
   "devDependencies": {
     "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@linera/wasm-client": "workspace:*"
   }
 }
