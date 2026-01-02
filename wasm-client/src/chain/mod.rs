@@ -4,11 +4,12 @@
 use std::collections::HashMap;
 
 use futures::stream::{AbortHandle, Abortable, StreamExt};
-use linera_base::identifiers::AccountOwner;
+use linera_base::{data_types::BlockHeight, identifiers::AccountOwner};
 use linera_client::chain_listener::ClientContext as _;
 use linera_core::{
     client::ChainClient,
     node::{ValidatorNode as _, ValidatorNodeProvider as _},
+    worker::Reason,
 };
 use serde::ser::Serialize as _;
 use wasm_bindgen::prelude::*;
@@ -67,30 +68,25 @@ impl Chain {
     #[wasm_bindgen(js_name = onNotification)]
     pub fn on_notification(&self, handler: js_sys::Function) -> JsResult<NotificationHandle> {
         let mut notifications = self.chain_client.subscribe()?;
-
+        let mut last_height: Option<BlockHeight> = None;
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
-
-        // wasm_bindgen_futures::spawn_local(async move {
-        //     while let Some(notification) = notifications.next().await {
-        //         tracing::debug!("received notification: {notification:?}");
-        //         handler
-        //             .call1(
-        //                 &JsValue::null(),
-        //                 &serde_wasm_bindgen::to_value(&notification).unwrap(),
-        //             )
-        //             .unwrap_throw();
-        //     }
-        // });
 
         wasm_bindgen_futures::spawn_local(async move {
             let fut = async move {
                 while let Some(notification) = notifications.next().await {
-                    handler
-                        .call1(
-                            &JsValue::null(),
-                            &serde_wasm_bindgen::to_value(&notification).unwrap(),
-                        )
-                        .unwrap_throw();
+                    if let Reason::NewBlock { height, .. } = notification.reason {
+                        if Some(height) == last_height {
+                            continue;
+                        }
+                        last_height = Some(height);
+
+                        handler
+                            .call1(
+                                &JsValue::null(),
+                                &serde_wasm_bindgen::to_value(&notification).unwrap(),
+                            )
+                            .unwrap_throw();
+                    }
                 }
             };
 
