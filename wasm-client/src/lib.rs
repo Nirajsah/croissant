@@ -24,10 +24,7 @@ use std::{rc::Rc, sync::Arc};
 
 use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex};
 use linera_base::identifiers::{AccountOwner, ChainId};
-use linera_client::{
-    chain_listener::{ChainListener, ClientContext as _},
-    util::wait_for_next_round,
-};
+use linera_client::chain_listener::{ChainListener, ClientContext as _};
 use linera_core::{client::ListeningMode, JoinSetExt};
 use wallet::PersistentWallet;
 use wasm_bindgen::prelude::*;
@@ -140,26 +137,10 @@ impl Client {
         ctx.client.track_chain(chain_id);
         let chain_client = ctx.make_chain_client(chain_id).await?;
 
-        let (listener, _listnen_handle, mut notificiation_stream) =
-            chain_client.listen(ListeningMode::FullChain).await?;
+        let (listener, _listnen_handle, _) = chain_client.listen(ListeningMode::FullChain).await?;
 
         ctx.chain_listeners.spawn_task(listener);
-
         chain_client.synchronize_from_validators().await?;
-
-        loop {
-            let (_, maybe_timeout) = {
-                let result = chain_client.process_inbox().await;
-                ctx.update_wallet_from_client(&chain_client).await?;
-                result?
-            };
-            if maybe_timeout.is_some() {
-                wait_for_next_round(&mut notificiation_stream, maybe_timeout.unwrap()).await;
-                continue;
-            } else {
-                break;
-            }
-        }
 
         self.persistent.save_to_storage(false).await?;
 

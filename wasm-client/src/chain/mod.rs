@@ -50,7 +50,7 @@ pub struct NotificationHandle {
 #[wasm_bindgen]
 impl NotificationHandle {
     #[wasm_bindgen(js_name = unsubscribe)]
-    pub fn unsubscribe(&mut self) {
+    pub fn abort(&mut self) {
         self.abort_handle.abort();
     }
 }
