@@ -316,9 +316,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "axum"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b098575ebe77cb6d14fc7f32749631a6e44edbef6b796f89b020e99ba20d425"
+checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
 dependencies = [
  "axum-core",
  "bytes",
@@ -341,9 +341,9 @@ dependencies = [
 
 [[package]]
 name = "axum-core"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59446ce19cd142f8833f856eb31f3eb097812d1479ab224f54d72428ca21ea22"
+checksum = "08c78f31d7b1291f7ee735c1c6780ccde7785daae9a9206026862dab7d8792d1"
 dependencies = [
  "bytes",
  "futures-core",
@@ -2329,7 +2329,7 @@ checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "linera-base"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "allocative",
  "alloy-primitives",
@@ -2341,6 +2341,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "chrono",
+ "clap",
  "custom_debug_derive",
  "derive_more 1.0.0",
  "ed25519-dalek",
@@ -2383,7 +2384,7 @@ dependencies = [
 
 [[package]]
 name = "linera-chain"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "allocative",
  "async-graphql",
@@ -2406,7 +2407,7 @@ dependencies = [
 
 [[package]]
 name = "linera-client"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "anyhow",
  "bcs",
@@ -2432,6 +2433,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde-wasm-bindgen 0.6.5",
+ "serde_json",
  "serde_yaml",
  "thiserror 1.0.69",
  "thiserror-context",
@@ -2448,14 +2450,13 @@ dependencies = [
 
 [[package]]
 name = "linera-core"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "async-graphql",
  "async-trait",
  "bcs",
  "cfg-if",
  "cfg_aliases",
- "clap",
  "custom_debug_derive",
  "futures",
  "linera-base",
@@ -2478,7 +2479,6 @@ dependencies = [
  "tracing",
  "trait-set",
  "trait-variant",
- "tsify",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-thread-pool",
@@ -2486,7 +2486,7 @@ dependencies = [
 
 [[package]]
 name = "linera-execution"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "allocative",
  "anyhow",
@@ -2527,7 +2527,7 @@ dependencies = [
 
 [[package]]
 name = "linera-faucet-client"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "linera-base",
  "linera-client",
@@ -2559,7 +2559,7 @@ checksum = "c9198100e9ce61acd3c714a2e61eb19fc5b8e2178dd645e2d9061e61e6e1feef"
 
 [[package]]
 name = "linera-persistent"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "cfg-if",
  "cfg_aliases",
@@ -2574,7 +2574,7 @@ dependencies = [
 
 [[package]]
 name = "linera-rpc"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2612,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "linera-sdk"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2639,7 +2639,7 @@ dependencies = [
 
 [[package]]
 name = "linera-sdk-derive"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -2648,7 +2648,7 @@ dependencies = [
 
 [[package]]
 name = "linera-storage"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "async-trait",
  "bcs",
@@ -2669,7 +2669,7 @@ dependencies = [
 
 [[package]]
 name = "linera-version"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "anyhow",
  "async-graphql",
@@ -2689,7 +2689,7 @@ dependencies = [
 
 [[package]]
 name = "linera-views"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "allocative",
  "anyhow",
@@ -2727,7 +2727,7 @@ dependencies = [
 
 [[package]]
 name = "linera-views-derive"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "cfg_aliases",
  "deluxe",
@@ -2910,7 +2910,7 @@ dependencies = [
 
 [[package]]
 name = "linera-witty"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "anyhow",
  "cfg_aliases",
@@ -2924,7 +2924,7 @@ dependencies = [
 
 [[package]]
 name = "linera-witty-macros"
-version = "0.15.8"
+version = "0.15.11"
 dependencies = [
  "cfg_aliases",
  "heck 0.4.1",
@@ -3389,11 +3389,12 @@ dependencies = [
 
 [[package]]
 name = "petgraph"
-version = "0.7.1"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
+checksum = "8701b58ea97060d5e5b155d383a69952a60943f0e6dfe30b04c287beb0b27455"
 dependencies = [
  "fixedbitset",
+ "hashbrown 0.15.5",
  "indexmap 2.12.1",
 ]
 
@@ -3583,9 +3584,9 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.14.1"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7231bd9b3d3d33c86b58adbac74b5ec0ad9f496b19d22801d773636feaa95f3d"
+checksum = "d2ea70524a2f82d518bce41317d0fae74151505651af45faf1ffbd6fd33f0568"
 dependencies = [
  "bytes",
  "prost-derive",
@@ -3593,15 +3594,14 @@ dependencies = [
 
 [[package]]
 name = "prost-build"
-version = "0.14.1"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac6c3320f9abac597dcbc668774ef006702672474aad53c6d596b62e487b40b1"
+checksum = "343d3bd7056eda839b03204e68deff7d1b13aba7af2b2fd16890697274262ee7"
 dependencies = [
  "heck 0.5.0",
  "itertools 0.14.0",
  "log",
  "multimap",
- "once_cell",
  "petgraph",
  "prettyplease",
  "prost",
@@ -3613,9 +3613,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.14.1"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
+checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
@@ -3626,9 +3626,9 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.14.1"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9b4db3d6da204ed77bb26ba83b6122a73aeb2e87e25fbf7ad2e84c4ccbf8f72"
+checksum = "8991c4cbdb8bc5b11f0b074ffe286c30e523de90fee5ba8132f1399f23cb3dd7"
 dependencies = [
  "prost",
 ]
