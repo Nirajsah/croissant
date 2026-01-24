@@ -1,11 +1,20 @@
-import type { Client, Wallet } from '@linera/wasm-client'
-import type { Signer } from '@linera/wasm-client/src/signer/Signer'
 import type * as wasmType from '@linera/wasm-client'
+import { Chain, Client, Wallet } from '@linera/wasm-client'
+import { Signer } from '@linera/wasm-client'
+
+export type Request = {
+  type: 'QUERY'
+  applicationId: string
+  query: string
+}
 
 export class ClientManager {
   private static _instance: ClientManager | null = null
   private client: Client | null = null
   private notificationHandlerRegistered = false
+
+  private activeChain: Chain | null = null
+  private chains: Map<wasmType.ChainId, Chain> = new Map()
 
   public onNotificationCallback: ((data: any) => void) | null = null
 
@@ -23,43 +32,44 @@ export class ClientManager {
   async init(
     wasmInstance: typeof wasmType,
     wallet: Wallet,
-    signer: Signer,
-    skipBlockSync = false
-  ): Promise<Client> {
-    if (this.client) {
-      return this.client
+    signer: Signer
+  ): Promise<void> {
+    if (this.activeChain) {
+      return
     }
 
     if (!wasmInstance || !wallet || !signer) {
       throw new Error('Missing wasmInstance, wallet, or signer')
     }
 
-    // if (this.client) {
-    //   console.log('Client already exists, but creating new one anyway')
-    // }
-
     try {
-      const client = await new wasmInstance.Client(
-        wallet,
-        signer,
-        skipBlockSync
-      )
+      const client = await new wasmInstance.Client(wallet, signer)
 
       this.client = client
-
-      this.registerNotificationHandler()
-      return client
+      const chain = await client.chain()
+      this.activeChain = chain
     } catch (err) {
       this.cleanup()
       throw err
     }
   }
 
-  /** Register handler only once */
-  registerNotificationHandler() {
-    if (!this.client || this.notificationHandlerRegistered) return
+  async initChainClient(chainId: wasmType.ChainId): Promise<Chain> {
+    if (!this.client) {
+      throw new Error('Missing Client')
+    }
 
-    this.client.onNotification((notification: any) => {
+    const chainClient = await this.client.chain(chainId)
+    this.chains.set(chainId, chainClient)
+    return chainClient
+  }
+
+  /** Register handler only once */
+  async registerNotificationHandler() {
+    if (!this.client || this.notificationHandlerRegistered || !this.activeChain)
+      return
+
+    this.activeChain.onNotification((notification: any) => {
       try {
         const parsed = this.parseNotification(notification)
 
@@ -135,37 +145,69 @@ export class ClientManager {
     return null
   }
 
-  async getBalance(): Promise<string | undefined> {
+  async getBalance(chainId?: wasmType.ChainId): Promise<string | undefined> {
+    // 1. Early exit if main client is missing
     if (!this.client) {
-      return
+      console.warn('Main client is not initialized')
+      return undefined
     }
+
     try {
-      const balance = await this.client!.balance()
-      return balance
+      let targetChain: Chain | undefined | null = this.activeChain
+
+      // 2. If a specific chainId is requested, try to resolve it
+      if (chainId) {
+        targetChain = this.chains.get(chainId)
+
+        // If not in cache, initialize and cache it
+        if (!targetChain) {
+          targetChain = await this.initChainClient(chainId)
+          // Only set if initialization was successful
+          if (targetChain) {
+            this.chains.set(chainId, targetChain)
+          }
+        }
+      }
+
+      // 3. Safety Check: Did we find a valid chain client?
+      if (!targetChain) {
+        console.error(
+          `Could not resolve chain client for chainId: ${chainId || 'active'}`
+        )
+        return undefined
+      }
+
+      // 4. Perform the action
+      return await targetChain.balance()
     } catch (error) {
-      console.error(error)
+      console.error('Error fetching balance:', error)
+      return undefined
     }
   }
 
-  async query(message: any) {
+  async query(req: Request) {
+    const app = await this.activeChain!.application(req.applicationId)
+    const result = await app.query(req.query)
+    return result
+  }
+
+  async assign(chainId: wasmType.ChainId, owner: string): Promise<void> {
+    if (!this.client) throw new Error('Failure...')
+
     try {
-      const app = await this.client!.frontend().application(
-        message.applicationId
-      )
-      const result = await app.query(message.query)
-      return result
-    } catch (err) {
-      throw err
+      const chain = await this.client.assignChain(chainId, owner)
+      this.activeChain = chain
+      this.chains.set(chainId, chain)
+    } catch (e) {
+      throw new Error('Failure...')
     }
   }
 
   /** Cleanup resources */
   async cleanup() {
-    console.log('Cleanup called, current client:', this.client)
-
     if (this.client) {
       try {
-        this.client.stop()
+        // this.client.stop()
         await new Promise((resolve) => setTimeout(resolve, 150))
         this.client.free()
         this.client = null
@@ -177,3 +219,5 @@ export class ClientManager {
     }
   }
 }
+
+// client manager manages all the Chain.

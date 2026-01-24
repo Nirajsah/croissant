@@ -1,53 +1,40 @@
 import { Copy, RefreshCw } from 'lucide-react'
-import { ChainInfo } from '@/walletTypes'
+import { ChainEntry, ChainId } from '@/walletTypes'
 import React from 'react'
 import { walletApi } from '@/wallet/walletApi'
 
 export const WalletCard = ({
   walletChain,
   defaultChain,
-  handleSetDefault,
 }: {
-  walletChain: ChainInfo[]
+  walletChain: ChainEntry[]
   defaultChain: string
-  handleSetDefault: any
 }) => {
   const chains = Array.isArray(walletChain) ? walletChain : [walletChain]
   const scrollRef = React.useRef<HTMLDivElement>(null)
-  const [balance, setBalance] = React.useState(0)
+
+  const handleSetInUse = async (chainId: string) => {
+    console.log('Setting default chain to:', chainId)
+  }
+
+  const [balances, setBalances] = React.useState<Record<ChainId, string>>({})
 
   React.useEffect(() => {
-    let alive = true
-    async function fetchBalance() {
-      try {
-        const bal = await walletApi.getBalances()
-        if (alive) setBalance(bal)
-      } catch (err) {
-        if (alive) setBalance(0)
+    async function fetchAllBalances() {
+      if (!chains) return
+      const result: Record<ChainId, string> = {}
+      for (const { chainId } of chains) {
+        try {
+          const bal = await walletApi.getBalance(chainId)
+          result[chainId] = bal || '0'
+        } catch (e) {
+          result[chainId] = '0'
+        }
       }
+      setBalances(result)
     }
-    fetchBalance()
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  // React.useEffect(() => {
-  //   const el = scrollRef.current
-  //   if (!el) return
-
-  //   const onWheel = (e: WheelEvent) => {
-  //     // Let trackpads work naturally
-  //     if (Math.abs(e.deltaX) > 0) return
-
-  //     // For vertical mouse wheel, convert to horizontal
-  //     e.preventDefault()
-  //     el.scrollLeft += e.deltaY
-  //   }
-
-  //   el.addEventListener('wheel', onWheel, { passive: false })
-  //   return () => el.removeEventListener('wheel', onWheel)
-  // }, [])
+    fetchAllBalances()
+  }, [chains])
 
   React.useEffect(() => {
     const el: any = scrollRef.current
@@ -96,11 +83,17 @@ export const WalletCard = ({
                 fill="#191e1c"
               />
             </svg>
-            <div className="absolute w-full min-h-[200px] text-white">
+            <div className="absolute w-full min-h-[200px] text-white px-3 py-1">
               <div className="inset-0 flex flex-col justify-between z-10 text-white">
                 <div className="px-6 pt-6">
-                  <div className="text-xs text-rose-300">Linera</div>
-                  <div className="text-[40px] font-bold">{balance || 0}</div>
+                  {/* <div className="text-xs text-rose-300">Linera</div> */}
+                  <div className="text-[40px] font-bold min-h-[60px] flex items-center">
+                    {balances[chain.chainId] !== undefined ? (
+                      balances[chain.chainId]
+                    ) : (
+                      <div className="h-10 w-16 bg-white/20 animate-pulse rounded" />
+                    )}
+                  </div>
                 </div>
                 <div className="flex w-full mt-4 p-2 flex-col justify-between items-start text-xs">
                   <span className="flex items-center gap-2 px-2 py-1 rounded-full text-sm w-full min-w-0">
@@ -112,29 +105,31 @@ export const WalletCard = ({
                     />
                   </span>
                   <span className="flex items-center gap-2 px-2 py-1 rounded-full text-sm w-full min-w-0">
-                    <span className="truncate">Account: {chain.owner}</span>
+                    <span className="truncate">
+                      Account: {chain.chainInfo.owner}
+                    </span>
                     <Copy
                       size={14}
                       className="cursor-pointer text-gray-500 hover:text-gray-700 flex-shrink-0"
-                      onClick={() => handleCopy(chain.owner)}
+                      onClick={() => handleCopy(chain.chainInfo.owner)}
                     />
                   </span>
                 </div>
                 {defaultChain === chain.chainId ? (
                   <button
                     disabled={true}
-                    className="text-white bg-black text-xs absolute top-1 right-4 px-4 py-1 rounded-3xl flex justify-center items-center gap-1 z-20"
+                    className="text-white bg-black text-xs absolute right-4 px-6 py-1 rounded-3xl flex justify-center items-center gap-1 z-20"
                   >
                     <RefreshCw width={15} />
-                    Default
+                    InUse
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleSetDefault(chain.chainId)}
-                    className="text-black text-xs absolute top-1 right-0 border px-3 py-0.5 rounded-3xl flex justify-center items-center gap-0.5 bg-white/90 z-20"
+                    onClick={() => handleSetInUse(chain.chainId)}
+                    className="text-black text-xs absolute right-4 border px-6 py-1 rounded-3xl flex justify-center items-center gap-1 bg-white/90 z-20"
                   >
                     <RefreshCw width={15} />
-                    Set Default
+                    Set InUse
                   </button>
                 )}
               </div>

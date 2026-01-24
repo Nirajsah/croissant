@@ -8,24 +8,44 @@
 // match the expected interface, even if the JSON is valid.
 
 // Branded type for ChainId to ensure type safety
-export type ChainId = string & { readonly __brand: 'ChainId' }
+//
 
-export interface Wallet {
-  chains: Chains
-  defaultChain: ChainId
-}
+// To parse this data:
+//
+//   import { Convert, Wallet } from "./file";
+//
+//   const wallet = Convert.toWallet(json);
+//
+// These functions will throw an error if the JSON doesn't
+// match the expected interface, even if the JSON is valid.
+export type ChainId = string & { readonly __brand: 'ChainId' }
 
 export interface Chains {
   [key: string]: ChainInfo
 }
 
+export interface Wallet {
+  chains: Chains
+  default: ChainId
+}
+
 export interface ChainInfo {
   blockHash: null | string
-  chainId: ChainId
+  epoch: string
   nextBlockHeight: number
   owner: string
   pendingProposal: null | string
   timestamp: number
+}
+
+export type ChainEntry = {
+  chainId: ChainId
+  chainInfo: ChainInfo
+}
+
+export type WalletChainList = {
+  default: ChainId
+  chains: ChainEntry[]
 }
 
 // Converts JSON strings to/from your types
@@ -34,9 +54,20 @@ export class Convert {
   public static toWallet(json: string): Wallet {
     return cast(JSON.parse(json), r('Wallet'))
   }
+  public static chainsAsList(json: string): WalletChainList {
+    const wallet = this.toWallet(json)
 
-  public static walletToJson(value: Wallet): string {
-    return JSON.stringify(uncast(value, r('Wallet')), null, 2)
+    const chains: ChainEntry[] = Object.entries(wallet.chains).map(
+      ([id, info]) => ({
+        chainId: id.toLowerCase() as ChainId,
+        chainInfo: info,
+      })
+    )
+
+    return {
+      default: wallet.default as ChainId,
+      chains,
+    }
   }
 }
 
@@ -45,9 +76,7 @@ function invalidValue(typ: any, val: any, key: any, parent: any = ''): never {
   const parentText = parent ? ` on ${parent}` : ''
   const keyText = key ? ` for key "${key}"` : ''
   throw Error(
-    `Invalid value${keyText}${parentText}. Expected ${prettyTyp} but got ${JSON.stringify(
-      val
-    )}`
+    `Invalid value${keyText}${parentText}. Expected ${prettyTyp} but got ${JSON.stringify(val)}`
   )
 }
 
@@ -78,15 +107,6 @@ function jsonToJSProps(typ: any): any {
   return typ.jsonToJS
 }
 
-function jsToJSONProps(typ: any): any {
-  if (typ.jsToJSON === undefined) {
-    const map: any = {}
-    typ.props.forEach((p: any) => (map[p.js] = { key: p.json, typ: p.typ }))
-    typ.jsToJSON = map
-  }
-  return typ.jsToJSON
-}
-
 function transform(
   val: any,
   typ: any,
@@ -106,7 +126,7 @@ function transform(
       const typ = typs[i]
       try {
         return transform(val, typ, getProps)
-      } catch (_) {}
+      } catch (_) { }
     }
     return invalidValue(typs, val, key, parent)
   }
@@ -180,10 +200,10 @@ function transform(
     return typ.hasOwnProperty('unionMembers')
       ? transformUnion(typ.unionMembers, val)
       : typ.hasOwnProperty('arrayItems')
-      ? transformArray(typ.arrayItems, val)
-      : typ.hasOwnProperty('props')
-      ? transformObject(getProps(typ), typ.additional, val)
-      : invalidValue(typ, val, key, parent)
+        ? transformArray(typ.arrayItems, val)
+        : typ.hasOwnProperty('props')
+          ? transformObject(getProps(typ), typ.additional, val)
+          : invalidValue(typ, val, key, parent)
   }
   // Numbers can be parsed by Date but shouldn't be.
   if (typ === Date && typeof val !== 'number') return transformDate(val)
@@ -194,16 +214,8 @@ function cast<T>(val: any, typ: any): T {
   return transform(val, typ, jsonToJSProps)
 }
 
-function uncast<T>(val: T, typ: any): any {
-  return transform(val, typ, jsToJSONProps)
-}
-
 function l(typ: any) {
   return { literal: typ }
-}
-
-function a(typ: any) {
-  return { arrayItems: typ }
 }
 
 function u(...typs: any[]) {
@@ -226,15 +238,19 @@ const typeMap: any = {
   Wallet: o(
     [
       { json: 'chains', js: 'chains', typ: r('Chains') },
-      { json: 'default', js: 'defaultChain', typ: '' },
+      { json: 'default', js: 'default', typ: '' },
     ],
     false
   ),
-  Chains: m(r('ChainInfo')),
+
+  // *** fix: accept arbitrary chainId keys ***
+  Chains: m(r('ChainInfo')), // "map of string -> ChainInfo"
+
+  // *** fix: convert snake_case to camelCase ***
   ChainInfo: o(
     [
       { json: 'block_hash', js: 'blockHash', typ: u(null, '') },
-      { json: 'chain_id', js: 'chainId', typ: '' },
+      { json: 'epoch', js: 'epoch', typ: '' },
       { json: 'next_block_height', js: 'nextBlockHeight', typ: 0 },
       { json: 'owner', js: 'owner', typ: '' },
       { json: 'pending_proposal', js: 'pendingProposal', typ: u(null, '') },

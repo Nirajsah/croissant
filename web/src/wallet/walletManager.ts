@@ -1,14 +1,15 @@
 import type { Wallet } from '@linera/wasm-client'
-import PrivateKeySigner from '@linera/wasm-client/src/signer/PrivateKey'
 import type * as wasmType from '@linera/wasm-client'
+import { PrivateKeySigner } from '@linera/wasm-client'
 
 export class WalletManager {
   private static _instance: WalletManager | null = null
   private wallet: Wallet | null = null
   private signer: PrivateKeySigner | null = null
   private wasmInstance: typeof wasmType | null = null
+  private isInitialized: boolean = false
 
-  constructor() {}
+  constructor() { }
 
   /** Singleton accessor */
   static get instance(): WalletManager {
@@ -16,6 +17,10 @@ export class WalletManager {
       this._instance = new WalletManager()
     }
     return this._instance
+  }
+
+  isWalletInitialized(): boolean {
+    return this.isInitialized
   }
 
   /** Called once by the Server to provide WASM instance */
@@ -48,6 +53,7 @@ export class WalletManager {
 
       this.wallet = wallet
       this.signer = signer
+      this.isInitialized = true
     } catch (err) {
       this.cleanup()
       throw err
@@ -56,8 +62,7 @@ export class WalletManager {
 
   async getJsWallet(): Promise<string> {
     try {
-      // const wallet = await this.wasmInstance!.Wallet.readJsWallet()
-      const wallet = 'ajigoer'
+      const wallet = await this.wasmInstance!.Wallet.readJsWallet()
       return wallet
     } catch (error) {
       throw new Error('Failed to read wallet')
@@ -76,6 +81,7 @@ export class WalletManager {
 
       this.wallet = wallet!
       this.signer = signer!
+      this.isInitialized = true
     } catch (error) {
       throw new Error('Failed to read wallet')
     }
@@ -90,11 +96,10 @@ export class WalletManager {
     }
   }
 
-  async setDefaultChain(chainId: string): Promise<string> {
+  async setDefaultChain(_chainId: string): Promise<string> {
     try {
-      await this.wallet!.setDefault(chainId)
-
-      await this.cleanup()
+      // await this.wallet!.setDefault(chainId)
+      // await this.cleanup()
 
       await this.reInitWallet() // reinitialize wallet after assignment
       return 'Default chain set successfully'
@@ -103,17 +108,17 @@ export class WalletManager {
     }
   }
 
-  async assign(payload: {
+  async assign(_payload: {
     chainId: string
     timestamp: number
   }): Promise<string> {
     try {
-      await this.wallet!.assignChain(
+      /* await this.wallet!.assignChain(
         this.signer!.address(),
         payload.chainId,
         payload.timestamp
-      )
-      this.cleanup()
+      ) */
+      // this.cleanup()
 
       await this.reInitWallet() // reinitialize wallet after assignment
       return 'Chain assigned successfully'
@@ -131,14 +136,11 @@ export class WalletManager {
   }
 
   cleanup() {
-    console.log('cleanup was called for wallet', this.wallet)
     try {
       this.wallet?.free()
     } catch (e) {
       console.error('failed to free wallet', e)
     }
-
-    console.log('cleanup was called after for wallet', this.wallet)
     this.wallet = null
   }
 }

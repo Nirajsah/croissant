@@ -11,8 +11,6 @@ import {
 } from 'lucide-react'
 import NavBar from '../components/NavBar'
 import { useNavigate } from 'react-router-dom'
-import { useWallet } from '../store/WalletProvider'
-import BottomDrawer from '../components/BottomDrawer'
 
 type ChainDropdownProps = {
   selectedChain: string
@@ -42,7 +40,6 @@ function ChainDropdown({
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { drawerOpen, setDrawerOpen } = useWallet()
 
   const [showSettingOption, setShowSettingOption] = React.useState('settings')
 
@@ -89,7 +86,6 @@ export default function SettingsPage() {
   return (
     <>
       <NavBar />
-      {drawerOpen && <BottomDrawer />}
       <div className="relative text-black w-full overflow-y-auto scroll-smooth flex flex-col h-full max-w-xl p-2 gap-3 text-textprimary">
         <div className="text-xl justify-between font-semibold p-2 my-1 flex items-center gap-2">
           {showSettingOption !== 'settings' && (
@@ -121,7 +117,6 @@ export default function SettingsPage() {
                 desc={option.desc}
                 onClick={handleMenuChange}
                 dropdown={option.dropdown}
-                setDrawerOpen={setDrawerOpen}
               />
             ))}
           </div>
@@ -140,7 +135,6 @@ type OptionProps = {
   desc: string
   onClick: any
   dropdown: any
-  setDrawerOpen: (state: boolean) => void
 }
 
 function Option({
@@ -149,14 +143,12 @@ function Option({
   desc,
   onClick,
   dropdown,
-  setDrawerOpen,
 }: OptionProps) {
   const [selectedChain, setSelectedChain] = React.useState(
     dropdown?.selectedChain ?? ''
   )
 
   function handleChainChange(val: any) {
-    setDrawerOpen(true)
     setSelectedChain(val)
   }
 

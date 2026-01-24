@@ -1,16 +1,14 @@
 import React from 'react'
 import { walletApi } from '../wallet/walletApi'
 import { useNavigate } from 'react-router-dom'
-import { useWallet } from '../store/WalletProvider'
 import Loading from '@/components/Loading'
+import { useWalletStore } from '@/store/wallet'
 
 export default function Welcome() {
-  const walletContext = useWallet()
   const [loading, setLoading] = React.useState(false)
 
-  const { importWallet } = walletContext
-
   const navigate = useNavigate()
+  const { importWallet } = useWalletStore()
 
   async function handleCreate() {
     setLoading(true)
@@ -39,8 +37,7 @@ export default function Welcome() {
         const contents = event.target?.result as string
         try {
           // Make sure importWallet fully completes all IndexedDB operations
-          const ready = await importWallet(contents)
-          if (!ready) return
+          await importWallet(contents)
           // Add a small delay to ensure IndexedDB has time to commit the transaction
           setTimeout(() => {
             navigate('/')

@@ -1,5 +1,5 @@
 import { walletApi } from '@/wallet/walletApi'
-import { ArrowRight, Check, ChevronDown, Copy, Wallet, X } from 'lucide-react'
+import { ArrowRight, ChevronDown, X } from 'lucide-react'
 import React, { useState } from 'react'
 
 type TransferModalProps = {
@@ -17,19 +17,19 @@ type TransferModalProps = {
 export function TransferModal({
   open,
   onClose,
-  onConfirm,
+  // onConfirm,
 }: TransferModalProps) {
-  const [to, setTo] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  // const [to, setTo] = useState('')
+  // const [error, setError] = useState<string | null>(null)
   const [selectedChain, setSelectedChain] = useState<any>(null)
-  const [selectedAccount, setSelectedAccount] = useState<any>(null)
+  // const [selectedAccount, setSelectedAccount] = useState<any>(null)
   const [chainId, setChainId] = useState<any>('')
-  const [toAddress, setToAddress] = useState<any>('')
-  const [amount, setAmount] = useState<any>('')
+  // const [toAddress, setToAddress] = useState<any>('')
+  // const [amount, setAmount] = useState<any>('')
   const [showChainDropdown, setShowChainDropdown] = useState<any>(false)
-  const [showAccountDropdown, setShowAccountDropdown] = useState<any>(false)
-  const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false)
+  // const [showAccountDropdown, setShowAccountDropdown] = useState<any>(false)
+  const [loading, _setLoading] = useState(false)
+  // const [copied, setCopied] = useState(false)
 
   // Mock data - replace with actual Web3 data
   const chains = [
@@ -63,26 +63,26 @@ export function TransferModal({
     },
   ]
 
-  const accounts = [
-    {
-      id: 1,
-      name: 'Main Wallet',
-      address: '0x742d35Cc6634C0532925a3b8D2145693f4Ba85D6',
-      balance: '2.5847',
-    },
-    {
-      id: 2,
-      name: 'Trading Wallet',
-      address: '0x8ba1f109551bD432803012645Hac136c82C7322',
-      balance: '1.2345',
-    },
-    {
-      id: 3,
-      name: 'Savings Wallet',
-      address: '0x1234567890abcdef1234567890abcdef12345678',
-      balance: '8.9012',
-    },
-  ]
+  // const accounts = [
+  //   {
+  //     id: 1,
+  //     name: 'Main Wallet',
+  //     address: '0x742d35Cc6634C0532925a3b8D2145693f4Ba85D6',
+  //     balance: '2.5847',
+  //   },
+  //   {
+  //     id: 2,
+  //     name: 'Trading Wallet',
+  //     address: '0x8ba1f109551bD432803012645Hac136c82C7322',
+  //     balance: '1.2345',
+  //   },
+  //   {
+  //     id: 3,
+  //     name: 'Savings Wallet',
+  //     address: '0x1234567890abcdef1234567890abcdef12345678',
+  //     balance: '8.9012',
+  //   },
+  // ]
 
   React.useEffect(() => {
     if (selectedChain) {
@@ -90,13 +90,13 @@ export function TransferModal({
     }
   }, [selectedChain])
 
-  const handleCopyAddress = () => {
-    if (selectedAccount) {
-      navigator.clipboard.writeText(selectedAccount.address)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
+  // const handleCopyAddress = () => {
+  //   if (selectedAccount) {
+  //     navigator.clipboard.writeText(selectedAccount.address)
+  //     setCopied(true)
+  //     setTimeout(() => setCopied(false), 2000)
+  //   }
+  // }
 
   const handleTransfer = async () => {
     // setLoading(true)
@@ -114,8 +114,8 @@ export function TransferModal({
     await walletApi.setDefaultChain(chainId)
   }
 
-  const isFormValid =
-    selectedChain && selectedAccount && chainId && toAddress && amount
+  // const isFormValid =
+  //   selectedChain && selectedAccount && chainId && toAddress && amount
   if (!open) return null
 
   return (
@@ -167,9 +167,8 @@ export function TransferModal({
                     </span>
                   )}
                   <ChevronDown
-                    className={`w-5 h-5 text-gray-400 transition-transform ${
-                      showChainDropdown ? 'rotate-180' : ''
-                    }`}
+                    className={`w-5 h-5 text-gray-400 transition-transform ${showChainDropdown ? 'rotate-180' : ''
+                      }`}
                   />
                 </button>
 

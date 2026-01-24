@@ -1,8 +1,8 @@
-import { walletApi } from '../wallet/walletApi'
 import { ChevronDown, MoreVertical, PlusCircle, Settings } from 'lucide-react'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import Linera from '../assets/Linera_Red_Mark.svg'
+import { walletApi } from '@/wallet/walletApi'
 
 const NavBar = () => {
   const [showMenu, setShowMenu] = React.useState(false)
@@ -75,7 +75,7 @@ const NavBar = () => {
             <div className="relative flex flex-col">
               {menuOptions.map((menu, index) => (
                 <div
-                  // onClick={() => handleMenuOperation(menu.option)}
+                  onClick={() => handleMenuOperation(menu.option)}
                   key={index}
                   ref={(el) => (itemRefs.current[index] = el)}
                   onMouseEnter={() => setHoverIndex(index)}

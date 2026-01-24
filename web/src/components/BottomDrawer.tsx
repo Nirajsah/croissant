@@ -1,58 +1,17 @@
-import { useWallet } from '../store/WalletProvider'
 import React from 'react'
 
-type Field = {
-  title: string
-  data: string
-}
-
-type DrawerData = {
-  action: Field
-  from: Field
-  to: Field
-  amount?: Field
-  est_gas: Field
-}
-
 export default function BottomDrawer() {
-  const { drawerOpen, setDrawerOpen } = useWallet()
   const [isVisible, setIsVisible] = React.useState(false)
   const [isAnimatingIn, setIsAnimatingIn] = React.useState(false)
-
-  React.useEffect(() => {
-    let timeout
-
-    if (drawerOpen) {
-      // First make the drawer visible in DOM
-      setIsVisible(true)
-      // Then trigger animation after a small delay to ensure CSS transition works
-      timeout = setTimeout(() => setIsAnimatingIn(true), 10)
-    } else {
-      // Start closing animation
-      setIsAnimatingIn(false)
-      // Then remove from DOM after animation completes
-      timeout = setTimeout(() => setIsVisible(false), 500)
-    }
-
-    return () => {
-      if (timeout) clearTimeout(timeout)
-    }
-  }, [drawerOpen])
 
   // Don't render anything if the drawer shouldn't be visible
   if (!isVisible) return null
 
-  function handleDrawerClose() {
-    setDrawerOpen(false)
-  }
-
   return (
     <>
       <div
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ease-in-out ${
-          isAnimatingIn ? 'opacity-100' : 'opacity-0'
-        }`}
-        onClick={() => handleDrawerClose}
+        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 ease-in-out ${isAnimatingIn ? 'opacity-100' : 'opacity-0'
+          }`}
         style={{ pointerEvents: isAnimatingIn ? 'auto' : 'none' }}
       />
 
@@ -66,7 +25,7 @@ export default function BottomDrawer() {
         }}
       >
         <div className="bg-[#09090b] flex flex-col gap-4 items-center justify-between h-full rounded-t-2xl overflow-hidden border-t border-[#ffffff24] p-4">
-          <div onClick={handleDrawerClose} className="flex justify-center p-1">
+          <div className="flex justify-center p-1">
             <div className="w-12 h-1 bg-gray-300 rounded-full" />
           </div>
           <div className="w-full h-full flex justify-between flex-col items-center gap-6">
@@ -102,13 +61,11 @@ export default function BottomDrawer() {
             {/** Buttons */}
             <div className="w-full flex gap-3">
               <button
-                onClick={handleDrawerClose}
                 className="w-full rounded-xl border text-white border-[#ffffff24] px-4 py-2"
               >
                 Cancel
               </button>
               <button
-                onClick={handleDrawerClose}
                 className="w-full rounded-xl text-black bg-white px-4 py-2"
               >
                 Confirm

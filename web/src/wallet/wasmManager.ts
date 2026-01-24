@@ -4,7 +4,7 @@ export class WasmManager {
   private static wasm: typeof wasm | null = null
   private static initialized: boolean = false
 
-  private constructor() {}
+  private constructor() { }
 
   static async init(): Promise<void> {
     if (this.initialized && this.wasm) return
