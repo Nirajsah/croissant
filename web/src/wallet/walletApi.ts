@@ -59,18 +59,22 @@ export const walletApi = {
     return this.sendMessage({ type: 'CREATE_CHAIN', target })
   },
 
-  getBalances() {
-    return this.sendMessage({ type: 'GET_BALANCE', target })
+  getPendingApprovals() {
+    return this.sendMessage<any[]>({ type: 'GET_PENDING_APPROVALS', target })
   },
 
-  setDefaultChain(chain_id: string) {
-    return this.sendMessage({ type: 'SET_DEFAULT_CHAIN', chain_id, target })
+  getBalance(chainId?: string) {
+    return this.sendMessage({ type: 'GET_BALANCE', target, chainId })
   },
 
-  // use to send confirmation messages to the wallet
-  sendConfirmation(message: any) {
+  setDefaultChain(chainId: string) {
+    return this.sendMessage({ type: 'SET_DEFAULT_CHAIN', chainId, target })
+  },
+
+  // Send approval decision to wallet server
+  sendConfirmation(message: { status: string; requestId: string; approvalType: string }) {
     return this.sendMessage({
-      type: 'APPROVAL',
+      type: 'resolve_approval_request',
       message: message,
       target,
     })

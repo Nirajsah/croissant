@@ -3,6 +3,7 @@ import * as guard from './message.guard'
 import { WasmManager } from './wasmManager'
 import { ClientManager } from './clientManager'
 import { WalletManager } from './walletManager'
+import { ApprovalManager, type SensitiveAction } from './approvalManager'
 
 type Result<T> = { success: true; data: T } | { success: false; error: string }
 
@@ -11,7 +12,7 @@ type FaucetHandler = (faucet: wasm.Faucet) => Promise<Result<string>>
 
 export type GuardedHandler = [
   (message: any) => message is any, // guard
-  (message: any, wrap: (data: any, success?: boolean) => void) => Promise<void>
+  (message: any, wrap: (data: any, success?: boolean) => void) => Promise<void>,
 ]
 
 export class Server {
@@ -20,9 +21,18 @@ export class Server {
   private client: ClientManager = ClientManager.instance
   private wallet: WalletManager = WalletManager.instance
 
-  // private isUpdatingWallet = false // IMPORTANT: we need this to make sure we are not processing any incoming message when wallet is in updating state
+  // Readiness State
+  private isReady = false
+  private messageQueue: Array<{
+    port: chrome.runtime.Port
+    message: any
+    wrap: (data: any, success?: boolean) => void
+  }> = []
 
-  constructor() {}
+  // Approval Manager (secure)
+  private approvalManager = new ApprovalManager()
+
+  constructor() { }
 
   private safePostMessage(port: chrome.runtime.Port, message: any): boolean {
     try {
@@ -110,6 +120,11 @@ export class Server {
     message: any,
     wrap: (data: any, success?: boolean) => void
   ) {
+    // SECURITY: Application messages require wallet to be initialized
+    if (!this.wallet.isWalletInitialized()) {
+      return wrap('Wallet not initialized. Please create or import a wallet first.', false)
+    }
+
     const handlerTuple = this.applicationHandlers[message.type]
     if (!handlerTuple) {
       return wrap(`Unhandled message type: ${message.type}`, false)
@@ -148,12 +163,42 @@ export class Server {
     }
   }
 
-  private async forwardMessageToServiceWorker(message: any, wrap: any) {
+  private async requestApproval(
+    type: SensitiveAction,
+    origin: string,
+    title: string,
+    favicon: string,
+    href: string,
+    params: any,
+    wrap: (data: any, success?: boolean) => void
+  ) {
+    // Create secure approval request with origin tracking
+    const requestId = this.approvalManager.createRequest(
+      type,
+      origin,
+      title,
+      favicon,
+      href,
+      params,
+      wrap
+    )
+
+    // Signal Background to open popup (minimal data)
     try {
-      await chrome.runtime.sendMessage({ ...message })
+      await chrome.runtime.sendMessage({ type: 'OPEN_APPROVAL_POPUP' })
     } catch (err) {
-      wrap(err, false)
+      console.warn('Failed to signal popup open:', err)
     }
+
+    // Also broadcast to already-open extension UIs
+    this.broadcastToSubscribers(
+      {
+        type: 'APPROVAL_REQUEST',
+        requestId,
+        approvalType: type,
+      },
+      (port) => port.name === 'extension'
+    )
   }
 
   private async handleApprovalMessage(
@@ -161,36 +206,44 @@ export class Server {
     message: any,
     wrap: (data: any, success?: boolean) => void
   ) {
-    const { status, approvalType } = message.message
-    const success = status === 'APPROVED'
-    const response = {
-      requestId: message.message.requestId,
-      success,
-      data: '',
+    // SECURITY: Only accept from extension port
+    if (port.name !== 'extension') {
+      return wrap('Unauthorized: approval only from extension', false)
+    }
+    // SECURITY: Wallet must be initialized to resolve approvals
+    if (!this.wallet.isWalletInitialized()) {
+      return wrap('Wallet not initialized', false)
     }
 
-    try {
-      switch (approvalType) {
-        case 'connect_wallet_request':
-          response.data = this.wallet.getSigner().address()
-          break
-        case 'assign_chain_request':
-          await this._handleAssignment(message, wrap)
-          response.data = 'Assigned'
-          break
-        default:
-          response.data = 'No-op approval'
+    const { status, requestId } = message.message
+    const approved = status === 'APPROVED'
+
+    const result = this.approvalManager.resolveRequest(
+      requestId,
+      approved,
+      async (request) => {
+        // Execute the approved action
+        switch (request.type) {
+          case 'CONNECT_WALLET':
+            request.wrap(this.wallet.getSigner().address())
+            break
+          case 'ASSIGNMENT':
+            await this._handleAssignment(
+              { message: { payload: request.params } },
+              request.wrap
+            )
+            break
+          default:
+            request.wrap('Unknown approval type', false)
+        }
       }
-    } catch (err) {
-      response.success = false
-      response.data = String(err)
-    } finally {
-      wrap('Done')
+    )
+
+    if (!result.success) {
+      return wrap(result.error || 'Failed to resolve approval', false)
     }
 
-    this.subscribers.forEach(
-      (port) => port.name == 'applications' && port.postMessage(response)
-    )
+    wrap(approved ? 'Approved' : 'Rejected')
   }
 
   private async routeMessage(
@@ -201,15 +254,53 @@ export class Server {
     const { name: portName } = port
     const { type: messageType } = message
 
-    // Handle global types first
-    if (['CONNECT_WALLET', 'ASSIGNMENT'].includes(messageType)) {
-      return await this.forwardMessageToServiceWorker(message, wrap)
-    }
-
-    if (messageType === 'APPROVAL' && portName === 'extension') {
+    // 1. Handle Approval Decisions from Extension (strict port check)
+    if (messageType === 'resolve_approval_request' && portName === 'extension') {
       return await this.handleApprovalMessage(port, message, wrap)
     }
 
+    // 2. Handle GET_PENDING_APPROVALS (pull-based, only from extension)
+    if (messageType === 'GET_PENDING_APPROVALS' && portName === 'extension') {
+      const pending = this.approvalManager.getPendingApprovals()
+      return wrap(pending)
+    }
+
+    // 3. Intercept Sensitive Actions for Approval
+    if (messageType === 'CONNECT_WALLET') {
+      // SECURITY: Reject if no wallet keys exist
+      if (!this.wallet.isWalletInitialized()) {
+        return wrap('Wallet not initialized. Please create or import a wallet first.', false)
+      }
+      const { origin, href, title, favicon } = message.payload || {}
+      return await this.requestApproval(
+        'CONNECT_WALLET',
+        origin || 'unknown',
+        title || 'Unknown dApp',
+        favicon || '',
+        href || '',
+        message.payload,
+        wrap
+      )
+    }
+
+    if (messageType === 'ASSIGNMENT') {
+      // SECURITY: Reject if no wallet keys exist
+      if (!this.wallet.isWalletInitialized()) {
+        return wrap('Wallet not initialized. Please create or import a wallet first.', false)
+      }
+      const { origin, href, title, favicon } = message.payload || {}
+      return await this.requestApproval(
+        'ASSIGNMENT',
+        origin || 'unknown',
+        title || 'Unknown dApp',
+        favicon || '',
+        href || '',
+        message.message,
+        wrap
+      )
+    }
+
+    // 4. Normal Routing
     if (portName === 'extension') {
       return await this.dispatchExtensionMessage(message, wrap)
     }
@@ -219,6 +310,19 @@ export class Server {
     }
 
     console.warn(`⚠️ Unknown port or message type: ${portName}:${messageType}`)
+  }
+
+  private processMessageQueue() {
+    console.log(`Processing queue: ${this.messageQueue.length} messages`)
+    while (this.messageQueue.length > 0) {
+      const item = this.messageQueue.shift()
+      if (item) {
+        // Double check port connection before processing
+        if (this.subscribers.has(item.port)) {
+          this.routeMessage(item.port, item.message, item.wrap)
+        }
+      }
+    }
   }
 
   private addSubscriber(port: chrome.runtime.Port) {
@@ -238,7 +342,6 @@ export class Server {
   private setupPortConnections() {
     chrome.runtime.onConnect.addListener((port) => {
       if (!['extension', 'applications'].includes(port.name)) return
-
       this.addSubscriber(port)
 
       port.onMessage.addListener(async (message) => {
@@ -246,13 +349,45 @@ export class Server {
 
         const requestId = message.requestId
         const wrap = (data: any, success = true) => {
-          console.log(' message, data', message, data)
           this.safePostMessage(port, { requestId, success, data })
         }
-        /* if (this.isUpdatingWallet) {
-          wrap('Wallet is updating. Please wait.', false)
+
+        const messageType = message.type
+
+        // IMMEDIATE: GET_WALLET or Resolve Approvals
+        if (
+          messageType === 'GET_WALLET' ||
+          messageType === 'CREATE_WALLET' ||
+          messageType === 'SET_WALLET' ||
+          messageType === 'resolve_approval_request' ||
+          messageType === 'PING'
+        ) {
+          try {
+            await this.routeMessage(port, message, wrap)
+          } catch (err) {
+            wrap(String(err), false)
+          }
+          return;
+        }
+
+        // SECURITY: Reject sensitive operations early if no wallet exists
+        // These should NOT be queued - they need a wallet to work
+        const requiresWalletImmediately = [
+          'CONNECT_WALLET',
+          'ASSIGNMENT',
+          'GET_PENDING_APPROVALS',
+        ]
+        if (requiresWalletImmediately.includes(messageType) && !this.wallet.isWalletInitialized()) {
+          return wrap('Wallet not initialized. Please create or import a wallet first.', false)
+        }
+
+        // QUEUE: If not ready (client not initialized, but wallet exists)
+        if (!this.isReady) {
+          console.log(`Queueing message (Client not ready)`)
+          this.messageQueue.push({ port, message, wrap })
           return
-        } */
+        }
+
         try {
           await this.routeMessage(port, message, wrap)
         } catch (err) {
@@ -293,63 +428,61 @@ export class Server {
    * and also to set wallet in indexeddb
    */
   private async faucetAction(op: OpType): Promise<Result<string>> {
-    const FAUCET_URL = 'http://localhost:8079'
-    // const FAUCET_URL = 'https://faucet.testnet-conway.linera.net/'
+    // const FAUCET_URL = 'http://localhost:8079'
+    const FAUCET_URL = 'https://faucet.testnet-conway.linera.net/'
     const faucet = new wasm.Faucet(FAUCET_URL)
     const handler = this.faucetHandlers[op]
     if (!handler) return { success: false, error: 'Invalid operation' }
     try {
       const result = await handler.call(this, faucet)
-      await this.initClient() // Initialize client after faucet action
+      await this._initClient() // Initialize client after faucet action
       return result
     } catch (err) {
       return { success: false, error: `${err}` }
     }
   }
 
-  // if wallet exists, initialize client, wallet is consumed here, so we renitialize it
-  private async initClient() {
-    console.log(
-      'wallet and signer',
-      this.wallet.getWallet(),
-      this.wallet.getSigner(),
-      this.wasmInstance
-    )
+  private async _initClient(): Promise<void> {
+    // We can't be ready without a wallet
     if (!this.wallet.getWallet() || !this.wallet.getSigner()) {
+      console.log('Client Initialization failed: Missing wallet or signer')
+      // We do NOT process the queue here because we can't process messages 
+      // that require a client if we failed to create one.
+      // However, we might want to let the user "create wallet" which is a "GET_WALLET/CREATE_WALLET" 
+      // type that bypasses the queue.
       return
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    console.log('reiniting client....')
     try {
-      // Initialize a fresh one
+      this.isReady = false // explicitly not ready during init
+
       await this.client.init(
         this.wasmInstance!,
         this.wallet.getWallet(),
         this.wallet.getSigner()
       )
 
-      await this.wallet.reInitWallet() // reinitialize wallet after client init
-
-      // Register your message forwarder, need to update this logic better handle notifications type
+      // Register message forwarder, need to update this logic better handle notifications type
       this.client.onNotificationCallback = (data: any) => {
         this.broadcastToSubscribers({
           type: 'NOTIFICATION',
           data,
         })
       }
+
+      this.isReady = true
+      this.processMessageQueue()
+
     } catch (error) {
-      await this.wallet.reInitWallet() // reinitialize wallet after client init
       console.warn('Failed to initialize client:', error)
+      this.isReady = false // Ensure we stay not ready
       throw error
     }
   }
 
-  private async initWallet() {
-    // Inject the wasm instance into your wallet manager
+  private async _initWallet() {
+    // Inject the wasm instance into wallet manager
     this.wallet.setWasmInstance(this.wasmInstance!)
-
     // Now wallet manager can safely load or create wallets
     try {
       await this.wallet.load()
@@ -359,12 +492,17 @@ export class Server {
   }
 
   private async init() {
+    this.isReady = false;
     await WasmManager.init()
     this.wasmInstance = WasmManager.instance
 
     this.setupPortConnections()
-    await this.initWallet()
-    await this.initClient()
+    await this._initWallet()
+    try {
+      await this._initClient()
+    } catch (e) {
+      console.log("Client init failed (likely no wallet), waiting for wallet creation")
+    }
   }
 
   private async _handlePing(wrap: (data: any, success?: boolean) => void) {
@@ -424,17 +562,17 @@ export class Server {
     wrap: (data: any, success?: boolean) => void
   ) {
     // set this to make sure we don't process any message at this time
-    // this.isUpdatingWallet = true
+    this.isReady = false
     try {
       const result = await this.wallet.setDefaultChain(message.chain_id)
       // reinitialize client after setting default chain
       await this.client.cleanup()
-      await this.initClient()
+      await this._initClient()
       wrap(result)
     } catch (error) {
       console.error(error)
-    } finally {
-      // this.isUpdatingWallet = false
+      this.isReady = true // recover readiness
+      this.processMessageQueue()
     }
   }
 
@@ -445,18 +583,18 @@ export class Server {
   ) {
     try {
       // set this to make sure we don't process any message at this time
-      // this.isUpdatingWallet = true
+      this.isReady = false
       const { payload } = message.message
 
       const result = await this.wallet.assign(payload) // assign chain in wallet manager, this will also reinitialize wallet
       // reinitialize client after assignment
       await this.client.cleanup()
-      await this.initClient()
+      await this._initClient()
       wrap(result)
     } catch (err) {
       wrap(`${err}`, false)
-    } finally {
-      // this.isUpdatingWallet = false
+      this.isReady = true // recover readiness
+      this.processMessageQueue()
     }
   }
 

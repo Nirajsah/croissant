@@ -1,223 +1,188 @@
-import { useMessage } from '@/MessageProvider'
 import { walletApi } from '@/wallet/walletApi'
-import React, { useState } from 'react'
+import { useState, useEffect } from 'react'
 
-type WalletConnectData = {
-  type: string
+// Type matching ApprovalRequestData from approvalManager.ts
+interface ApprovalRequestData {
   requestId: string
-  payload: {
-    origin: string
-    href: string
-    title: string
-    favicon: string | undefined
-  }
-  permissions: string[]
-  metaData: {
-    method: string
-    chainId?: string
-    timestamp?: string
-  }
+  type: string
+  origin: string
+  title: string
+  favicon: string
+  href: string
+  params: any
+  createdAt: number
 }
 
-type AssignChainData = {
-  type: string
-  requestId: string
-  payload: {
-    origin: string
-    href: string
-    title: string
-    favicon: string | undefined
-  }
-  permissions: string[]
-  metaData: {
-    method: string
-    chainId: string
-    timestamp: string
-  }
-}
-
-type ApprovalMessage = WalletConnectData | AssignChainData
-
-export default function WalletConnectApproval() {
-  const message = useMessage()
-
-  const messagePayload = message.payload as ApprovalMessage
-
-  const [loading, setLoading] = useState(false)
+export default function ApprovalPopup() {
+  const [approval, setApproval] = useState<ApprovalRequestData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleApprove = () => {
+  // SECURITY: Pull approval data from trusted server on mount
+  useEffect(() => {
+    const fetchPendingApprovals = async () => {
+      try {
+        const pending = await walletApi.getPendingApprovals()
+        if (pending && pending.length > 0) {
+          // Display the first pending approval
+          setApproval(pending[0])
+        } else {
+          setError('No pending approvals')
+        }
+      } catch (err) {
+        console.error('Failed to fetch pending approvals:', err)
+        setError('Failed to load approval request')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPendingApprovals()
+  }, [])
+
+  const handleApprove = async () => {
+    if (!approval) return
+
     setIsApproving(true)
-    setLoading(true)
     try {
-      walletApi
-        .sendConfirmation({
-          status: 'APPROVED',
-          requestId: messagePayload.requestId,
-          approvalType: messagePayload.type,
-          payload: messagePayload.metaData,
-        })
-        .then(() => {
-          setLoading(false)
-          setIsRejecting(false)
-          window.close()
-        })
-    } catch (error) {
-      console.error('Approval failed:', error)
-      setLoading(false)
+      await walletApi.sendConfirmation({
+        status: 'APPROVED',
+        requestId: approval.requestId,
+        approvalType: approval.type,
+      })
+      window.close()
+    } catch (err) {
+      console.error('Approval failed:', err)
       setIsApproving(false)
     }
   }
 
-  const handleReject = () => {
+  const handleReject = async () => {
+    if (!approval) return
+
     setIsRejecting(true)
-    setLoading(true)
     try {
-      walletApi
-        .sendConfirmation({
-          status: 'REJECTED',
-          requestId: messagePayload.requestId,
-          approvalType: messagePayload.type,
-        })
-        .then(() => {
-          setLoading(false)
-          setIsRejecting(false)
-          window.close()
-        })
-    } catch (error) {
-      console.error('Rejection failed:', error)
-      setLoading(false)
+      await walletApi.sendConfirmation({
+        status: 'REJECTED',
+        requestId: approval.requestId,
+        approvalType: approval.type,
+      })
+      window.close()
+    } catch (err) {
+      console.error('Rejection failed:', err)
       setIsRejecting(false)
     }
   }
 
-  // Derived fields
-  const { origin, href, title, favicon } = messagePayload.payload || {}
-  const { method, chainId, timestamp } = messagePayload.metaData || {}
+  // Loading state
+  if (loading) {
+    return (
+      <div className="w-[370px] h-[600px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900 mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Loading request...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !approval) {
+    return (
+      <div className="w-[370px] h-[600px] flex items-center justify-center">
+        <div className="text-center px-6">
+          <p className="text-gray-500">{error || 'No pending approval requests'}</p>
+          <button
+            onClick={() => window.close()}
+            className="mt-4 px-4 py-2 bg-gray-100 rounded-lg text-sm"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const isProcessing = isApproving || isRejecting
 
   return (
     <div className="w-[370px] h-[600px]">
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="p-3 text-center">
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="p-3 text-center border-b">
+          <p className="text-sm text-gray-500">
             Review and approve this request
           </p>
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-3 space-y-6">
-          {/* dApp card */}
-          <div className="border rounded-xl py-2 px-3">
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+          {/* SECURITY: Origin prominently displayed */}
+          <div className="border rounded-xl py-3 px-4 bg-gray-50">
             <div className="flex items-center gap-3">
-              <Favicon
-                src={favicon}
-                label={domainInitials(title)}
-                origin={origin}
-              />
+              <Favicon src={approval.favicon} title={approval.title} />
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-gray-500">{origin}</p>
-                <p className="truncate font-semibold text-gray-900">{title}</p>
-                <p className="truncate text-xs text-gray-500">{href}</p>
+                <p className="font-semibold text-gray-900 truncate">{approval.title}</p>
+                <p className="text-sm text-gray-600 truncate">{approval.origin}</p>
               </div>
             </div>
           </div>
 
-          {/* Transaction/Request details */}
-          <div>
-            <h2 className="mb-3 font-semibold text-gray-900">
-              Request Details
-            </h2>
-            {/* Method */}
-            {messagePayload.type === 'connect_wallet_request' && (
-              <div>
-                <Row label="Method" value={method} mono />
+          {/* Request Type Badge */}
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+              {formatActionType(approval.type)}
+            </span>
+          </div>
+
+          {/* Request Details */}
+          <div className="border rounded-xl p-4 space-y-3">
+            <h3 className="font-semibold text-gray-900 text-sm">Request Details</h3>
+            <Row label="Action" value={formatActionType(approval.type)} />
+            <Divider />
+            <Row label="Origin" value={approval.origin} />
+            {approval.type === 'ASSIGNMENT' && approval.params?.chainId && (
+              <>
                 <Divider />
-              </div>
-            )}
-            {messagePayload.type === 'assign_chain_request' && (
-              <div className="rounded-xl border border-gray-100 bg-white p-4 space-y-3">
-                <Row label="Method" value={method} mono />
-                <Divider />
-                <Row label="ChainId" value={chainId} />
-                <Divider />
-                <Row label="Timestamp" value={timestamp} />
-              </div>
+                <Row label="Chain ID" value={truncateMiddle(approval.params.chainId, 20)} mono />
+              </>
             )}
           </div>
 
-          {/* Permissions (optional) */}
-          {messagePayload.permissions.length ? (
-            <div>
-              <h2 className="mb-3 font-semibold text-gray-900">Permissions</h2>
-              <div className="flex flex-wrap gap-2">
-                {messagePayload.permissions.map((p) => (
-                  <span
-                    key={p}
-                    className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700"
-                  >
-                    {p}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {/* Safety note */}
+          {/* Security Warning */}
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <div className="flex gap-2">
-              <svg
-                className="h-5 w-5 text-amber-700"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-              >
-                <path
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                />
+              <svg className="h-5 w-5 text-amber-700 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
               <p className="text-xs text-amber-800">
-                Approve only if you trust this site; approval lets the dApp act
-                using your wallet session.
+                Only approve if you trust <strong>{approval.origin}</strong>.
+                This action may modify your wallet state.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Footer (fixed inside container) */}
-        <div className="flex px-2 gap-2 py-2">
+        {/* Footer Actions */}
+        <div className="flex px-3 gap-3 py-3 border-t">
           <button
             onClick={handleReject}
-            disabled={loading}
-            className={`w-full rounded-full border-2 border-gray-200 bg-white py-2.5 font-medium transition active:scale-[0.99] ${
-              loading
-                ? 'cursor-not-allowed text-gray-400'
-                : 'hover:bg-gray-50 text-gray-900'
-            }`}
-            aria-busy={isRejecting}
+            disabled={isProcessing}
+            className={`flex-1 rounded-full border-2 border-gray-200 bg-white py-2.5 font-medium transition ${isProcessing ? 'cursor-not-allowed text-gray-400' : 'hover:bg-gray-50 text-gray-900'
+              }`}
           >
-            {isRejecting ? (
-              <Spinner theme="dark" label="Rejecting..." />
-            ) : (
-              'Reject'
-            )}
+            {isRejecting ? <Spinner theme="dark" label="Rejecting..." /> : 'Reject'}
           </button>
 
           <button
             onClick={handleApprove}
-            disabled={loading}
-            className="w-full bg-black rounded-full py-2.5 font-medium text-white transition active:scale-[0.99]"
-            aria-busy={isApproving}
+            disabled={isProcessing}
+            className="flex-1 bg-black rounded-full py-2.5 font-medium text-white transition hover:bg-gray-800"
           >
-            {isApproving ? (
-              <Spinner theme="light" label="Confirming..." />
-            ) : (
-              'Confirm'
-            )}
+            {isApproving ? <Spinner theme="light" label="Approving..." /> : 'Approve'}
           </button>
         </div>
       </div>
@@ -225,128 +190,50 @@ export default function WalletConnectApproval() {
   )
 }
 
-/* --- Helpers & tiny UI atoms (no overflow) --- */
-function Spinner({
-  theme = 'dark',
-  label,
-}: {
-  theme?: 'light' | 'dark'
-  label?: string
-}) {
-  const isLight = theme === 'light'
+/* --- Helper Components --- */
 
+function Spinner({ theme = 'dark', label }: { theme?: 'light' | 'dark'; label?: string }) {
+  const isLight = theme === 'light'
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex items-center gap-2 justify-center">
       <span
-        className={`h-[15px] w-[15px] animate-spin rounded-full border-2 ${
-          isLight
-            ? 'border-white/50 border-t-white'
-            : 'border-gray-400 border-t-gray-900'
-        }`}
-        style={{
-          borderRightColor: 'transparent',
-          borderBottomColor: 'transparent',
-        }}
+        className={`h-4 w-4 animate-spin rounded-full border-2 ${isLight ? 'border-white/50 border-t-white' : 'border-gray-400 border-t-gray-900'
+          }`}
+        style={{ borderRightColor: 'transparent', borderBottomColor: 'transparent' }}
       />
-      {label && (
-        <span
-          className={`text-xs ${isLight ? 'text-white/90' : 'text-gray-700'}`}
-        >
-          {label}
-        </span>
-      )}
+      {label && <span className={`text-xs ${isLight ? 'text-white/90' : 'text-gray-700'}`}>{label}</span>}
     </span>
   )
 }
 
-function Favicon({
-  src,
-  label,
-  origin,
-}: {
-  src?: string
-  label: string
-  origin?: string
-}) {
+function Favicon({ src, title }: { src?: string; title: string }) {
   const [imgError, setImgError] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [currentSrc, setCurrentSrc] = useState(src)
 
-  React.useEffect(() => {
-    setCurrentSrc(src)
-    setImgError(false)
-    setIsLoading(true)
-  }, [src])
+  const fallbackText = title ? title.slice(0, 2).toUpperCase() : '??'
 
-  const handleError = () => {
-    // Try Google's favicon service as fallback
-    if (currentSrc !== src || !origin) {
-      setImgError(true)
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      const domain = new URL(origin).hostname
-      const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
-      setCurrentSrc(googleFavicon)
-      setIsLoading(true)
-    } catch {
-      setImgError(true)
-      setIsLoading(false)
-    }
-  }
-
-  const getFallbackText = () => {
-    if (!label || label.length === 0) return '?'
-    return label.length <= 3
-      ? label.toUpperCase()
-      : label.slice(0, 2).toUpperCase()
-  }
-
-  if (currentSrc && !imgError) {
+  if (src && !imgError) {
     return (
-      <div className="relative h-12 w-12">
-        {isLoading && (
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-600/20 animate-pulse" />
-        )}
-        <img
-          src={currentSrc}
-          alt={`${label} favicon`}
-          className={`h-12 w-12 rounded-xl object-cover shadow-sm transition-opacity ${
-            isLoading ? 'opacity-0' : 'opacity-100'
-          }`}
-          onError={handleError}
-          onLoad={() => setIsLoading(false)}
-        />
-      </div>
+      <img
+        src={src}
+        alt={title}
+        className="h-10 w-10 rounded-xl object-cover"
+        onError={() => setImgError(true)}
+      />
     )
   }
 
   return (
-    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 text-white grid place-items-center font-semibold text-sm shadow-md">
-      {getFallbackText()}
+    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 text-white grid place-items-center font-semibold text-sm">
+      {fallbackText}
     </div>
   )
 }
 
-function Row({
-  label,
-  value,
-  mono,
-}: {
-  label: string
-  value?: string
-  mono?: boolean
-}) {
+function Row({ label, value, mono }: { label: string; value?: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-gray-500">{label}</span>
-      <span
-        className={`text-sm text-gray-900 ${
-          mono ? 'font-mono' : 'font-medium'
-        } truncate max-w-[56%]`}
-      >
+      <span className={`text-sm text-gray-900 ${mono ? 'font-mono text-xs' : 'font-medium'} truncate max-w-[60%]`}>
         {value || '—'}
       </span>
     </div>
@@ -357,9 +244,18 @@ function Divider() {
   return <div className="border-t border-gray-100" />
 }
 
-function domainInitials(host: string) {
-  const core = host.replace(/^www\./, '')
-  const parts = core.split('.')
-  const s = parts[0] || host
-  return s.slice(0, 2).toUpperCase()
+function formatActionType(type: string): string {
+  const map: Record<string, string> = {
+    'CONNECT_WALLET': 'Connect Wallet',
+    'ASSIGNMENT': 'Assign Chain',
+    'TRANSFER': 'Transfer',
+    'SIGN_MESSAGE': 'Sign Message',
+  }
+  return map[type] || type
+}
+
+function truncateMiddle(str: string, maxLen: number): string {
+  if (!str || str.length <= maxLen) return str
+  const half = Math.floor((maxLen - 3) / 2)
+  return `${str.slice(0, half)}...${str.slice(-half)}`
 }
