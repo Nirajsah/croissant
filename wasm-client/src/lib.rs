@@ -25,7 +25,7 @@ use std::{rc::Rc, sync::Arc};
 use futures::{future::FutureExt as _, lock::Mutex as AsyncMutex};
 use linera_base::identifiers::{AccountOwner, ChainId};
 use linera_client::chain_listener::{ChainListener, ClientContext as _};
-use linera_core::{client::ListeningMode, JoinSetExt};
+use linera_core::JoinSetExt;
 use wallet::PersistentWallet;
 use wasm_bindgen::prelude::*;
 use web_sys::wasm_bindgen;
@@ -102,8 +102,9 @@ impl Client {
             storage,
             tokio_util::sync::CancellationToken::new(),
             tokio::sync::mpsc::unbounded_channel().1,
+            true,
         )
-        .run(true) // Enable background sync
+        .run() // Enable background sync
         .boxed_local()
         .await?
         .boxed_local();
@@ -134,10 +135,9 @@ impl Client {
             ctx.assign_new_chain_to_key(chain_id, owner).await?;
         }
 
-        ctx.client.track_chain(chain_id);
         let chain_client = ctx.make_chain_client(chain_id).await?;
 
-        let (listener, _listnen_handle, _) = chain_client.listen(ListeningMode::FullChain).await?;
+        let (listener, _listnen_handle, _) = chain_client.listen().await?;
 
         ctx.chain_listeners.spawn_task(listener);
         chain_client.synchronize_from_validators().await?;
