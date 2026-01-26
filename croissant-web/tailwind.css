@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+    /* Primary Colors - Croissant Red */
+    --color-primary: #D90429;
+    --color-primary-light: #EF233C;
+    --color-primary-dark: #B3001B;
+
+    /* Secondary Colors */
+    --color-secondary: #2B2D42;
+    --color-secondary-light: #8D99AE;
+    --color-secondary-dark: #181925;
+
+    /* Background Colors */
+    --color-bg-default: #121212;
+    --color-bg-paper: #121416;
+    --color-bg-card: #1C1E22;
+
+    /* Foreground Colors */
+    --color-fg-primary: #FFFFFF;
+    --color-fg-secondary: #A1A1AA;
+    --color-fg-disabled: #52525B;
+
+    /* Status Colors */
+    --color-success: #10B981;
+    --color-error: #EF4444;
+    --color-warning: #F59E0B;
+
+    /* Font Family */
+    --font-sans: 'Inter', 'Plus Jakarta Sans', sans-serif;
+}
+
+:root {
+    background-color: var(--color-bg-default);
+}
+
+/* Custom utilities */
+.gradient-hero {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 50%, var(--color-primary-dark) 100%);
+}
+
+.glassmorphism {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-glow {
+    box-shadow: 0 0 40px rgba(var(--color-primary), 0.15);
+}
