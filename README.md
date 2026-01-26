@@ -6,7 +6,7 @@ Croissant is a browser extension that provides a seamless interface for interact
 
 The extension is built with **React**, **TypeScript**, **Vite**, **TailwindCSS**, and **Rust/WASM** for the blockchain client.
 
-**USE `linera-protocol v0.15.4 or v0.15.3` (testnet-conway branch)**
+**USE `linera-protocol v0.15.11` (testnet-conway branch)**
 
 ---
 
@@ -14,7 +14,7 @@ The extension is built with **React**, **TypeScript**, **Vite**, **TailwindCSS**
 
 ```bash
 root/
-  |_linera-protocol (v.0.15.4) 
+  |_linera-protocol (v.0.15.11)
   |_croissant
 
 # Clone the repository
@@ -24,7 +24,7 @@ cd croissant
 # Install dependencies (pnpm is recommended)
 pnpm install
 
-#Build 
+#Build
 pnpm build # (client and extension)
 
 # Build the WASM client (release)
@@ -79,7 +79,7 @@ All messages are sent via `chrome.runtime.sendMessage` (from content script) or 
 | `GET_WALLET`        | Extension UI → Background | _none_                             | Returns the serialized wallet JSON.                                           |
 | `SET_WALLET`        | Extension UI → Background | `{ wallet: string }`               | Overwrites the stored wallet (used for import).                               |
 | `GET_BALANCE`       | Extension UI → Background | _none_                             | **(Not implemented yet)** – placeholder for balance query.                    |
-| `SET_DEFAULT_CHAIN` | Extension UI → Background | `{ chain_id: string }`             | Sets the default chain for the wallet.                                        |
+| `SET_CHAIN_INUSE`   | Extension UI → Background | `{ chain_id: string }`             | Sets the chain to be active.                                        |
 | `QUERY`             | Extension UI → Background | `{ applicationId, query }`         | Calls `client.frontend().application(...).query(...)`.                        |
 | `PING`              | Extension UI → Background | _none_                             | Health‑check, returns `"PONG"`.                                               |
 
@@ -102,11 +102,10 @@ The injected script (`web/src/content/injected.ts`) creates a `LineraProvider` t
 interface WalletRequest {
   type: 'QUERY' | 'ASSIGNMENT'
   // QUERY fields
-  applicationId?: string
-  query?: string
+  applicationId: string
+  query: string
   // ASSIGNMENT fields
-  chainId?: string
-  timestamp?: string
+  chainId: string
 }
 ```
 
@@ -121,7 +120,7 @@ interface WalletRequest {
 #### Events
 
 - **`linera-wallet-notification`** – forwarded from background (`type: 'NOTIFICATION'`). Payload contains `{ event, ... }`.
-- **`linera-wallet-status`** – emitted when the wallet is updating or ready (`status: 'updating' | 'ready'`).
+- **`linera-wallet-chain-changed`** – forwarded from background (`type: 'chainChanged'`). Payload contains `{ event, ... }`.
 
 ### 3. WASM Client (`@linera/wasm-client`)
 

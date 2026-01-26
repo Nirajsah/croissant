@@ -11,14 +11,15 @@ export type Request = {
 export class ClientManager {
   private static _instance: ClientManager | null = null
   private client: Client | null = null
-  private notificationHandlerRegistered = false
+  private notificationAbortHandle: wasmType.NotificationHandle | null = null
 
   private activeChain: Chain | null = null
   private chains: Map<wasmType.ChainId, Chain> = new Map()
 
   public onNotificationCallback: ((data: any) => void) | null = null
+  public onChainChangedCallback: ((chainId: string) => void) | null = null
 
-  private constructor() {}
+  private constructor() { }
 
   /** Singleton accessor */
   static get instance(): ClientManager {
@@ -64,44 +65,49 @@ export class ClientManager {
     return chainClient
   }
 
-  /** Register handler only once */
-  async registerNotificationHandler() {
-    if (!this.client || this.notificationHandlerRegistered || !this.activeChain)
-      return
+  private notificationAbortHandler() {
+    if (this.notificationAbortHandle) {
+      this.notificationAbortHandle.unsubscribe()
+    }
+  }
 
-    this.activeChain.onNotification((notification: any) => {
+  /** Register notification handler for active chain (aborts previous if any) */
+  async registerNotificationHandler() {
+    // Abort existing handler before registering new one
+    if (this.notificationAbortHandle) {
+      try {
+        this.notificationAbortHandler()
+      } catch (e) {
+        console.warn('Failed to abort previous notification handler:', e)
+      }
+      this.notificationAbortHandle = null
+    }
+
+    if (!this.client || !this.activeChain) return
+
+    // Store the abort handle returned by onNotification
+    this.notificationAbortHandle = this.activeChain.onNotification((notification: any) => {
       try {
         const parsed = this.parseNotification(notification)
+        if (!parsed) return
 
-        if (!parsed) {
-          return
-        }
-
-        // Notify subscribers safely
         if (this.onNotificationCallback) {
           try {
             this.onNotificationCallback(parsed)
           } catch (callbackErr) {
             console.error('❌ Notification callback failed:', callbackErr)
           }
-        } else {
-          console.debug(
-            '🔔 Notification received (no handler registered):',
-            parsed
-          )
         }
       } catch (err) {
         console.error('❌ Error handling notification:', err, notification)
       }
     })
-
-    this.notificationHandlerRegistered = true
   }
 
   /** Parses a raw WASM notification into a normalized structure */
   private parseNotification(
     notification: any
-  ): { event: string; [key: string]: any } | null {
+  ): { event: string;[key: string]: any } | null {
     const reason = notification?.reason
     if (!reason) return null
 
@@ -131,16 +137,6 @@ export class ClientManager {
         details: NewIncomingBundle,
       }
     }
-
-    // (future-proofing) we don't know about `event` type yet, also we don't need it for now
-    // if (reason.event) {
-    //   const { Event } = reason
-    //   return {
-    //     event: 'event',
-    //     timestamp: Event.timestamp ?? null,
-    //     details: Event,
-    //   }
-    // }
 
     return null
   }
@@ -185,10 +181,9 @@ export class ClientManager {
     }
   }
 
-  async query(req: Request) {
+  async query(req: Request): Promise<string> {
     const app = await this.activeChain!.application(req.applicationId)
-    const result = await app.query(req.query)
-    return result
+    return app.query(req.query)
   }
 
   async assign(chainId: wasmType.ChainId, owner: string): Promise<void> {
@@ -198,13 +193,53 @@ export class ClientManager {
       const chain = await this.client.assignChain(chainId, owner)
       this.activeChain = chain
       this.chains.set(chainId, chain)
+
+      // Re-register notification handler for new active chain
+      await this.registerNotificationHandler()
+
+      // Notify subscribers about chain change
+      if (this.onChainChangedCallback) {
+        this.onChainChangedCallback(chainId)
+      }
     } catch (e) {
       throw new Error('Failure...')
     }
   }
 
-  /** Cleanup resources */
+  async setChainInUse(chainId: wasmType.ChainId): Promise<void> {
+    if (!this.client) throw new Error('Failure...')
+
+    try {
+      let chain = this.chains.get(chainId)
+      if (!chain) {
+        chain = await this.initChainClient(chainId)
+      }
+      this.activeChain = chain
+
+      // Re-register notification handler for new active chain
+      await this.registerNotificationHandler()
+
+      // Notify subscribers about chain change
+      if (this.onChainChangedCallback) {
+        this.onChainChangedCallback(chainId)
+      }
+    } catch (e) {
+      throw new Error('Failure...')
+    }
+  }
+
+  /** Cleanup resources, we might not need this after all */
   async cleanup() {
+    // Abort notifications first
+    if (this.notificationAbortHandle) {
+      try {
+        this.notificationAbortHandler()
+      } catch (e) {
+        console.warn('Failed to abort notification handler:', e)
+      }
+      this.notificationAbortHandle = null
+    }
+
     if (this.client) {
       try {
         // this.client.stop()
@@ -215,7 +250,6 @@ export class ClientManager {
         console.error('❌ Error during cleanup:', err)
         this.client = null
       }
-      this.notificationHandlerRegistered = false
     }
   }
 }

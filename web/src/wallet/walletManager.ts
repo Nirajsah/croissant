@@ -87,46 +87,6 @@ export class WalletManager {
     }
   }
 
-  async reInitWallet(): Promise<void> {
-    try {
-      const wallet = await this.wasmInstance!.Wallet.get()
-      this.wallet = wallet!
-    } catch (error) {
-      throw new Error('Failed to read wallet')
-    }
-  }
-
-  async setDefaultChain(_chainId: string): Promise<string> {
-    try {
-      // await this.wallet!.setDefault(chainId)
-      // await this.cleanup()
-
-      await this.reInitWallet() // reinitialize wallet after assignment
-      return 'Default chain set successfully'
-    } catch (error) {
-      throw new Error('Failed to set default chain')
-    }
-  }
-
-  async assign(_payload: {
-    chainId: string
-    timestamp: number
-  }): Promise<string> {
-    try {
-      /* await this.wallet!.assignChain(
-        this.signer!.address(),
-        payload.chainId,
-        payload.timestamp
-      ) */
-      // this.cleanup()
-
-      await this.reInitWallet() // reinitialize wallet after assignment
-      return 'Chain assigned successfully'
-    } catch (error) {
-      throw new Error('Failed to assign')
-    }
-  }
-
   getWallet(): Wallet {
     return this.wallet!
   }
@@ -134,7 +94,7 @@ export class WalletManager {
   getSigner(): PrivateKeySigner {
     return this.signer!
   }
-
+  // is never called
   cleanup() {
     try {
       this.wallet?.free()

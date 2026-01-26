@@ -1,4 +1,4 @@
-;(function () {
+; (function () {
   type WalletRequest = QueryApplicationRequest | AssignmentRequest
 
   interface QueryApplicationRequest {
@@ -25,16 +25,26 @@
 
     constructor() {
       super()
-      // Listen for notifications from content script
-      this._setupNotificationListener()
+      // Listen for events from content script
+      this._setupEventListeners()
     }
 
-    private _setupNotificationListener() {
+    private _setupEventListeners() {
+      // Listen for notifications
       window.addEventListener('linera-wallet-notification', (event: Event) => {
         const customEvent = event as CustomEvent
-        // Dispatch to dApp listeners
         this.dispatchEvent(
           new CustomEvent('notification', {
+            detail: customEvent.detail,
+          })
+        )
+      })
+
+      // Listen for chain change events
+      window.addEventListener('linera-wallet-chain-changed', (event: Event) => {
+        const customEvent = event as CustomEvent
+        this.dispatchEvent(
+          new CustomEvent('chainChanged', {
             detail: customEvent.detail,
           })
         )
@@ -70,16 +80,16 @@
       })
     }
 
-    on(event: 'notification', callback: (data: any) => void) {
+    on(event: 'notification' | 'chainChanged', callback: (data: any) => void) {
       this.addEventListener(event, ((e: CustomEvent) => {
         callback(e.detail)
       }) as EventListener)
     }
 
     // Convenience method to unsubscribe
-    off(event: 'notification', callback: (data: any) => void) {
+    off(event: 'notification' | 'chainChanged', callback: (data: any) => void) {
       this.removeEventListener(event, callback as EventListener)
-    }    
+    }
   }
 
   window.linera = new LineraProvider()

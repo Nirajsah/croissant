@@ -3,7 +3,7 @@ script.src = chrome.runtime.getURL('injected.js')
 script.onload = function () {
   script.remove()
 }
-;(document.head || document.documentElement).appendChild(script)
+  ; (document.head || document.documentElement).appendChild(script)
 
 function respond(id: string, result: any) {
   window.dispatchEvent(
@@ -26,11 +26,11 @@ window.addEventListener('linera-wallet-request', async (event) => {
     const payload =
       type == 'CONNECT_WALLET' || type === 'ASSIGNMENT'
         ? {
-            origin: window.location.origin,
-            href: window.location.href,
-            title: document.title || 'Unknown DApp',
-            favicon: getFaviconWithGoogle(),
-          }
+          origin: window.location.origin,
+          href: window.location.href,
+          title: document.title || 'Unknown DApp',
+          favicon: getFaviconWithGoogle(),
+        }
         : undefined
 
     const backgroundMsg = {
@@ -56,12 +56,21 @@ function getWalletPort(): chrome.runtime.Port {
 
   function attachListeners(port: chrome.runtime.Port) {
     port.onMessage.addListener((message) => {
-      // Check if it's a notification (no requestId)
+      // Forward notifications to web page
       if (message.type === 'NOTIFICATION') {
-        // Forward notification to web page
         window.dispatchEvent(
           new CustomEvent('linera-wallet-notification', {
             detail: message.data,
+          })
+        )
+        return
+      }
+
+      // Forward chain change events to web page
+      if (message.type === 'CHAIN_CHANGED') {
+        window.dispatchEvent(
+          new CustomEvent('linera-wallet-chain-changed', {
+            detail: { chainId: message.chainId },
           })
         )
         return
@@ -158,7 +167,7 @@ function getFavicon(): string {
     if (ogUrl) {
       try {
         return new URL(ogUrl, location.href).href
-      } catch (err) {}
+      } catch (err) { }
     }
   }
 

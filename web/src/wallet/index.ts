@@ -95,9 +95,9 @@ export class Server {
       (m): m is any => m.type === 'GET_BALANCE',
       async (_msg, wrap) => this._handleGetBalance(wrap),
     ],
-    SET_DEFAULT_CHAIN: [
-      (m): m is any => m.type === 'SET_DEFAULT_CHAIN',
-      async (msg, wrap) => this._handleSetDefaultChain(msg, wrap),
+    SET_CHAIN_INUSE: [
+      (m): m is any => m.type === 'SET_CHAIN_INUSE',
+      async (msg, wrap) => this._handleSetChainInUse(msg, wrap),
     ],
     PING: [
       (m): m is any => m.type === 'PING',
@@ -229,7 +229,7 @@ export class Server {
             break
           case 'ASSIGNMENT':
             await this._handleAssignment(
-              { message: { payload: request.params } },
+              { chainId: request.params.chainId },
               request.wrap
             )
             break
@@ -324,6 +324,19 @@ export class Server {
       }
     }
   }
+
+  private cleanMessageQueue() {
+    console.log(`Cleaning queue: ${this.messageQueue.length} messages`)
+    // Notify all pending clients that their request is cancelled
+    for (const item of this.messageQueue) {
+      if (this.subscribers.has(item.port)) {
+        item.wrap('Request cancelled: Active chain changed', false)
+      }
+    }
+    // specific way to clear array in V8 (fastest)
+    this.messageQueue.length = 0
+  }
+
 
   private addSubscriber(port: chrome.runtime.Port) {
     if (!this.subscribers.has(port)) {
@@ -462,11 +475,19 @@ export class Server {
         this.wallet.getSigner()
       )
 
-      // Register message forwarder, need to update this logic better handle notifications type
+      // Register notification forwarder
       this.client.onNotificationCallback = (data: any) => {
         this.broadcastToSubscribers({
           type: 'NOTIFICATION',
           data,
+        })
+      }
+
+      // Register chain change forwarder to notify subscribers
+      this.client.onChainChangedCallback = (chainId: string) => {
+        this.broadcastToSubscribers({
+          type: 'CHAIN_CHANGED',
+          chainId,
         })
       }
 
@@ -556,40 +577,36 @@ export class Server {
     }
   }
 
-  // TODO: use wallet manager to set default chain
-  private async _handleSetDefaultChain(
-    message: any,
+  // TODO: use client manager to set default chain
+  private async _handleSetChainInUse(
+    message: { chainId: string },
     wrap: (data: any, success?: boolean) => void
   ) {
     // set this to make sure we don't process any message at this time
     this.isReady = false
     try {
-      const result = await this.wallet.setDefaultChain(message.chain_id)
-      // reinitialize client after setting default chain
-      await this.client.cleanup()
-      await this._initClient()
-      wrap(result)
+      await this.client.setChainInUse(message.chainId)
+      wrap(`Active chain set to ${message.chainId}`, true)
     } catch (error) {
       console.error(error)
-      this.isReady = true // recover readiness
-      this.processMessageQueue()
+      wrap(`${error}`, false)
     }
+    this.isReady = true // recover readiness
+    this.cleanMessageQueue()
   }
 
-  // TODO: use wallet manager to assign chain
+  // TODO: use client manager to assign chain
   private async _handleAssignment(
-    message: any,
+    message: { chainId: string },
     wrap: (data: any, success?: boolean) => void
   ) {
     try {
       // set this to make sure we don't process any message at this time
       this.isReady = false
-      const { payload } = message.message
+      const { chainId } = message
+      const owner = this.wallet.getSigner().address()
 
-      const result = await this.wallet.assign(payload) // assign chain in wallet manager, this will also reinitialize wallet
-      // reinitialize client after assignment
-      await this.client.cleanup()
-      await this._initClient()
+      const result = await this.client.assign(chainId, owner) // assign chain in wallet manager, this will also reinitialize wallet
       wrap(result)
     } catch (err) {
       wrap(`${err}`, false)

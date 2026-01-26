@@ -67,8 +67,8 @@ export const walletApi = {
     return this.sendMessage({ type: 'GET_BALANCE', target, chainId })
   },
 
-  setDefaultChain(chainId: string) {
-    return this.sendMessage({ type: 'SET_DEFAULT_CHAIN', chainId, target })
+  setChainInUse(chainId: string) {
+    return this.sendMessage({ type: 'SET_CHAIN_INUSE', chainId, target })
   },
 
   // Send approval decision to wallet server
